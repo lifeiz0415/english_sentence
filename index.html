@@ -1215,7 +1215,7 @@
             if (!pronunciation) {
               return `<span class="inline-flex min-w-[32px] items-center rounded-lg bg-white/60 px-2 py-0.5"><span class="text-[10px] font-semibold text-slate-400">-</span></span>`;
             }
-            return `<span class="inline-flex min-w-[32px] items-center rounded-lg bg-white/70 px-2 py-0.5"><span class="text-sm font-semibold text-slate-600">${escapeHtml(pronunciation)}</span></span>`;
+            return `<span class="inline-flex min-w-[32px] items-center rounded-lg bg-white/70 px-2 py-0.5"><span class="text-base font-semibold text-slate-600">${escapeHtml(pronunciation)}</span></span>`;
           })
           .join("");
       }
@@ -1599,8 +1599,8 @@
                   </div>
 
                   <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-                    <div class="h-[133px] overflow-hidden rounded-2xl bg-white/50 p-3 md:p-4">
-                      <p id="english-display" class="line-clamp-2 text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${buildTypingMarkup(current.english, state.answer)}</p>
+                    <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
+                      <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${buildTypingMarkup(current.english, state.answer)}</p>
                     </div>
                     <div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5">
                       <div class="flex flex-wrap gap-2">${buildPronunciationMarkup(current.english)}</div>
