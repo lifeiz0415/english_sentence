@@ -1234,11 +1234,14 @@
       runSelfTests();
 
       const STORAGE_KEY = "const-english-sentences-v4";
+
       const state = {
         sentences: [],
         index: 0,
         answer: "",
         feedback: "",
+        lastSyncedMainHeight: 0,
+        lastScrolledSentenceId: null,
         hasAutoSpokenOnFirstCard: false,
         shouldSpeakAfterRender: false,
         shouldRefocusCardInput: false,
@@ -1515,6 +1518,38 @@
         persist();
       }
 
+      function handleActionClick(el) {
+        if (!el) return;
+        const action = el.getAttribute("data-action");
+        if (!action) return;
+
+        if (state.isAutoplaying && action !== "toggle-autoplay") {
+          stopAutoplay();
+        }
+        if (action === "toggle-listen") toggleListen();
+        if (action === "toggle-random") state.isRandomOn = !state.isRandomOn;
+        if (action === "prev") safeSetIndex(-1, true);
+        if (action === "next") {
+          if (state.isRandomOn) {
+            safeSetIndex(getAdvanceIndex(), false);
+          } else {
+            safeSetIndex(1, true);
+          }
+        }
+        if (action === "reset-progress") resetProgress();
+        if (action === "toggle-autoplay") toggleAutoplay();
+        if (action === "pick") {
+          const id = Number(el.getAttribute("data-sentence-id"));
+          safeSetIndex(id, false);
+        }
+
+        if ((action === "prev" || action === "next" || action === "pick") && state.isListenOn) {
+          state.shouldSpeakAfterRender = true;
+        }
+
+        render();
+      }
+
       function render() {
         cancelTypingRaf();
         const root = document.getElementById("root");
@@ -1551,13 +1586,13 @@
               </header>
 
               <section class="grid items-stretch gap-4 md:grid-cols-[1fr_320px]">
-                <main id="main-panel" class="h-full rounded-3xl bg-white p-5 shadow-sm md:p-8">
+                <main id="main-panel" class="rounded-3xl bg-white p-5 shadow-sm md:p-8">
                   <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
                       <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">#${current.id}</span>
                       ${current.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex items-center gap-2">
                       <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
                       <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>
                       <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
@@ -1610,6 +1645,7 @@
 
         const cardAnswerInput = document.getElementById("card-answer-input");
         const englishDisplay = document.getElementById("english-display");
+
         if (cardAnswerInput) {
           cardAnswerInput.addEventListener("compositionstart", () => {
             state.isComposing = true;
@@ -1622,6 +1658,7 @@
             const didAdvance = checkCardTypingAndAdvance(current);
             if (didAdvance) {
               render();
+              return;
             }
           });
 
@@ -1651,18 +1688,21 @@
           const mainPanel = document.getElementById("main-panel");
           if (!listWrap || !mainPanel) return;
           const mainVisibleHeight = mainPanel.offsetHeight;
-          if (mainVisibleHeight > 0) {
+          if (mainVisibleHeight > 0 && mainVisibleHeight !== state.lastSyncedMainHeight) {
             listWrap.style.height = `${mainVisibleHeight}px`;
+            state.lastSyncedMainHeight = mainVisibleHeight;
           }
         };
 
         const scrollCurrentItemToTop = () => {
+          if (state.lastScrolledSentenceId === current.id) return;
           const listWrap = document.getElementById("list-wrap");
           if (!listWrap) return;
           const activeItem = listWrap.querySelector(`[data-sentence-id="${current.id}"]`);
           if (!activeItem) return;
           const targetTop = activeItem.offsetTop - listWrap.offsetTop;
           listWrap.scrollTop = Math.max(0, targetTop);
+          state.lastScrolledSentenceId = current.id;
         };
 
         syncListHeightToMainPanel();
@@ -1670,37 +1710,6 @@
         window.requestAnimationFrame(() => {
           syncListHeightToMainPanel();
           scrollCurrentItemToTop();
-        });
-
-        root.querySelectorAll("[data-action]").forEach((el) => {
-          el.addEventListener("click", () => {
-            const action = el.getAttribute("data-action");
-            if (state.isAutoplaying && action !== "toggle-autoplay") {
-              stopAutoplay();
-            }
-            if (action === "toggle-listen") toggleListen();
-            if (action === "toggle-random") state.isRandomOn = !state.isRandomOn;
-            if (action === "prev") safeSetIndex(-1, true);
-            if (action === "next") {
-              if (state.isRandomOn) {
-                safeSetIndex(getAdvanceIndex(), false);
-              } else {
-                safeSetIndex(1, true);
-              }
-            }
-            if (action === "reset-progress") resetProgress();
-            if (action === "toggle-autoplay") toggleAutoplay();
-            if (action === "pick") {
-              const id = Number(el.getAttribute("data-sentence-id"));
-              safeSetIndex(id, false);
-            }
-
-            if ((action === "prev" || action === "next" || action === "pick") && state.isListenOn) {
-              state.shouldSpeakAfterRender = true;
-            }
-
-            render();
-          });
         });
 
         if (!state.hasAutoSpokenOnFirstCard) {
@@ -1713,6 +1722,13 @@
           if (state.isListenOn) speak(current);
         }
       }
+
+      const root = document.getElementById("root");
+      root.addEventListener("click", (e) => {
+        const actionElement = e.target.closest("[data-action]");
+        if (!actionElement || !root.contains(actionElement)) return;
+        handleActionClick(actionElement);
+      });
 
       render();
     </script>
