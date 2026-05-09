@@ -611,6 +611,10 @@ function render() {
   const englishDisplay = document.getElementById("english-display");
 
   if (cardAnswerInput) {
+    cardAnswerInput.addEventListener("paste", (e) => {
+      e.preventDefault();
+    });
+
     cardAnswerInput.addEventListener("compositionstart", () => {
       state.isComposing = true;
     });
