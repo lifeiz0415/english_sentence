@@ -775,10 +775,14 @@
 <p class="text-sm font-semibold text-slate-500">Master English with 365 Sentences</p>
 <h1 class="text-2xl font-bold md:text-4xl">🎯 365문장으로 영어 마스터하기</h1>
                   </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${state.sentences.length}</div></div>
                       <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
                       <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">진도</div><div class="text-xl font-extrabold">${progress}%</div></div>
+                      <button data-action="reset-progress" class="rounded-2xl bg-slate-100 px-4 py-3 text-center transition hover:bg-slate-200">
+                        <div class="text-xs font-semibold text-slate-500">진도</div>
+                        <div class="text-xl font-extrabold">초기화</div>
+                      </button>
                     </div>
                 </div>
                 <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
@@ -792,7 +796,6 @@
                       ${current.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
                     </div>
                     <div class="flex gap-2">
-                      <button data-action="reset-progress" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">진도 초기화</button>
                       <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
                       <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>
                       <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
