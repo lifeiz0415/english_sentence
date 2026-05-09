@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>English Sentence Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+    <script>
+      const DEFAULT_LINES = [
+        "I think you're right. — 네 말이 맞는 것 같아.",
+        "I don't think so. — 나는 그렇게 생각하지 않아.",
+        "That makes sense. — 말이 되네.",
+        "I totally agree. — 완전히 동의해.",
+        "It depends. — 상황에 따라 달라.",
+        "What do you mean? — 무슨 뜻이야?",
+        "Could you say that again? — 다시 말해줄래?",
+        "I didn't catch that. — 못 들었어.",
+        "I'm not sure. — 잘 모르겠어.",
+        "Let me think about it. — 생각 좀 해볼게.",
+        "I'm used to getting up early. — 나는 일찍 일어나는 것에 익숙하다.",
+        "I'm interested in learning English. — 나는 영어 배우는 것에 관심이 있다.",
+        "I'm looking forward to meeting you. — 너를 만나기를 기대하고 있다.",
+        "I have difficulty understanding this. — 나는 이것을 이해하는 데 어려움이 있다.",
+        "I'm responsible for this project. — 나는 이 프로젝트를 책임지고 있다.",
+        "I'm satisfied with the result. — 나는 결과에 만족한다.",
+        "I'm afraid of making mistakes. — 나는 실수하는 것이 두렵다.",
+        "I'm trying to improve myself. — 나는 나 자신을 발전시키려고 노력 중이다.",
+        "She is likely to succeed. — 그녀는 성공할 가능성이 높다.",
+        "He seems to know the answer. — 그는 답을 아는 것처럼 보인다.",
+        "The more you practice, the better you become. — 연습할수록 더 잘하게 된다.",
+        "It is important to keep your promise. — 약속을 지키는 것은 중요하다.",
+        "There is no reason to give up. — 포기할 이유가 없다.",
+        "It is never too late to learn. — 배우기에 너무 늦은 때는 없다.",
+        "If I were you, I would study harder. — 내가 너라면 더 열심히 공부할 것이다.",
+        "Unless you keep trying, you will fail. — 계속 노력하지 않으면 실패할 것이다.",
+        "Although he was tired, he continued working. — 그는 피곤했지만 계속 일했다.",
+        "As soon as I arrived, it started raining. — 내가 도착하자마자 비가 오기 시작했다.",
+        "By the time I arrived, the movie had started. — 내가 도착했을 때 영화는 이미 시작되었다.",
+        "Not only was he smart, but he was also kind. — 그는 똑똑했을 뿐 아니라 친절했다.",
+        "I want to improve my English skills. — 나는 영어 실력을 향상시키고 싶다.",
+        "I need to finish this work today. — 나는 오늘 이 일을 끝내야 한다.",
+        "I decided to study abroad. — 나는 유학 가기로 결정했다.",
+        "I managed to solve the problem. — 나는 문제 해결에 성공했다.",
+        "I hope to see you again. — 나는 너를 다시 보길 바란다.",
+        "I refused to give up. — 나는 포기하기를 거부했다.",
+        "I enjoy listening to music. — 나는 음악 듣는 것을 좋아한다.",
+        "I avoid wasting time. — 나는 시간을 낭비하는 것을 피한다.",
+        "I regret saying those words. — 나는 그런 말을 한 것을 후회한다.",
+        "I practiced speaking English every day. — 나는 매일 영어 말하기를 연습했다.",
+        "People who exercise regularly tend to live longer. — 규칙적으로 운동하는 사람들은 더 오래 사는 경향이 있다.",
+        "What matters most is consistency. — 가장 중요한 것은 꾸준함이다.",
+        "Technology has changed the way we communicate. — 기술은 우리가 소통하는 방식을 바꾸었다.",
+        "Could you help me with this? — 이것 좀 도와줄 수 있어?",
+        "What would you like to eat? — 뭐 먹고 싶어?",
+        "How much does this cost? — 이거 얼마예요?",
+        "I'd like to make a reservation. — 예약하고 싶습니다.",
+        "Could you speak more slowly? — 좀 더 천천히 말해줄 수 있나요?",
+        "I'll call you when I arrive. — 도착하면 전화할게.",
+        "Be careful on your way home. — 집에 가는 길 조심해.",
+        "I'm running late. — 나 늦고 있어.",
+        "Let's grab some coffee. — 커피 한잔하자.",
+        "I'll take care of it. — 내가 처리할게.",
+        "That sounds great. — 좋게 들린다.",
+        "I really appreciate your help. — 네 도움에 정말 감사해.",
+        "I understand how you feel. — 네 기분 이해해.",
+        "Don't worry too much about it. — 그것에 대해 너무 걱정하지 마.",
+        "Everything will be fine. — 모든 게 잘될 거야.",
+        "Employees must follow safety regulations. — 직원들은 안전 규정을 따라야 한다.",
+        "Customer satisfaction is our top priority. — 고객 만족은 우리의 최우선 과제다.",
+        "The meeting has been postponed. — 회의가 연기되었다.",
+        "Please submit the report by Friday. — 금요일까지 보고서를 제출해 주세요.",
+        "We appreciate your cooperation. — 협조에 감사드립니다.",
+        "The manager approved the proposal. — 관리자가 제안서를 승인했다.",
+        "The schedule has been changed. — 일정이 변경되었다.",
+        "We apologize for the inconvenience. — 불편을 드려 죄송합니다.",
+        "Education plays a crucial role in society. — 교육은 사회에서 중요한 역할을 한다.",
+        "Many experts are concerned about climate change. — 많은 전문가들이 기후 변화에 대해 우려하고 있다.",
+        "Students should be encouraged to think critically. — 학생들은 비판적으로 사고하도록 장려되어야 한다.",
+        "Public transportation needs to be improved. — 대중교통은 개선될 필요가 있다.",
+        "Social media affects public opinion. — 소셜 미디어는 여론에 영향을 준다.",
+        "Technology is changing our daily habits. — 기술은 우리의 일상 습관을 바꾸고 있다.",
+        "We should set clear priorities every day. — 우리는 매일 분명한 우선순위를 정해야 한다.",
+        "The evidence supports his argument. — 증거는 그의 주장을 뒷받침한다.",
+        "Practice makes perfect. — 연습이 완벽을 만든다.",
+        "Actions speak louder than words. — 행동이 말보다 중요하다.",
+        "Honesty is the best policy. — 정직이 최선의 방책이다.",
+        "Experience is the best teacher. — 경험은 최고의 스승이다.",
+        "Success requires patience and effort. — 성공은 인내와 노력을 요구한다.",
+        "Failure can teach valuable lessons. — 실패는 가치 있는 교훈을 줄 수 있다.",
+        "Learning never ends. — 배움은 끝나지 않는다.",
+        "Confidence is important in communication. — 자신감은 의사소통에서 중요하다.",
+        "We should learn from our mistakes. — 우리는 우리의 실수로부터 배워야 한다.",
+        "Consistent effort leads to success. — 꾸준한 노력은 성공으로 이어진다.",
+        "I usually wake up early on weekdays. — 나는 보통 평일에 일찍 일어난다.",
+        "She enjoys listening to music. — 그녀는 음악 듣는 것을 좋아한다.",
+        "We decided to postpone the meeting. — 우리는 회의를 연기하기로 결정했다.",
+        "He forgot to lock the door. — 그는 문 잠그는 것을 잊었다.",
+        "They managed to solve the problem. — 그들은 문제 해결에 성공했다.",
+        "I prefer tea to coffee. — 나는 커피보다 차를 선호한다.",
+        "The movie was worth watching. — 그 영화는 볼 가치가 있었다.",
+        "I can't afford to buy a new car. — 나는 새 차를 살 여유가 없다.",
+        "She apologized for being late. — 그녀는 늦은 것에 대해 사과했다.",
+        "The store opens at nine o'clock. — 그 가게는 9시에 연다.",
+        "Please turn off the lights. — 불을 꺼 주세요.",
+        "We are planning to travel abroad. — 우리는 해외여행을 계획 중이다.",
+        "He spends a lot of time studying. — 그는 공부에 많은 시간을 쓴다.",
+        "She has been working here for years. — 그녀는 수년간 여기서 일해 왔다.",
+        "I wish I could speak English fluently. — 영어를 유창하게 말할 수 있으면 좋겠다.",
+        "There used to be a park here. — 예전에 여기 공원이 있었다.",
+        "Let me know your decision. — 네 결정을 알려줘.",
+        "The test was easier than expected. — 시험은 예상보다 쉬웠다.",
+        "Time passes quickly. — 시간은 빠르게 지나간다.",
+        "I completely forgot about the appointment. — 나는 약속을 완전히 잊고 있었다.",
+        "The food smells delicious. — 음식 냄새가 맛있다.",
+        "Please keep the room clean. — 방을 깨끗하게 유지해 주세요.",
+        "I have no idea what happened. — 무슨 일이 일어났는지 전혀 모르겠다.",
+        "We should respect different opinions. — 우리는 다양한 의견을 존중해야 한다.",
+        "The deadline is approaching fast. — 마감일이 빠르게 다가오고 있다.",
+        "He was deeply moved by the story. — 그는 그 이야기에 깊이 감동했다.",
+        "Nothing is impossible if you keep trying. — 계속 노력하면 불가능한 것은 없다.",
+        "Everyone makes mistakes sometimes. — 누구나 가끔 실수한다.",
+        "Could you tell me the way to the station? — 역 가는 길을 알려줄 수 있나요?",
+        "Where is the nearest convenience store? — 가장 가까운 편의점이 어디인가요?",
+        "What do you usually do on weekends? — 주말에 보통 뭐 해?",
+        "I'm interested in Korean culture. — 나는 한국 문화에 관심이 있다.",
+        "We need to discuss this matter further. — 우리는 이 문제를 더 논의해야 한다.",
+        "The results exceeded our expectations. — 결과는 우리의 기대를 뛰어넘었다.",
+        "The situation is getting worse. — 상황이 점점 악화되고 있다.",
+        "I try to stay positive. — 나는 긍정적으로 지내려고 노력한다.",
+        "He refused to answer the question. — 그는 질문에 답하기를 거부했다.",
+        "We need to find a better solution. — 우리는 더 나은 해결책을 찾아야 한다.",
+        "She was praised for her hard work. — 그녀는 열심히 일한 것에 대해 칭찬받았다.",
+        "The city is famous for its beautiful beaches. — 그 도시는 아름다운 해변으로 유명하다.",
+        "We should avoid wasting time. — 우리는 시간을 낭비하는 것을 피해야 한다.",
+        "The book contains useful information. — 그 책은 유용한 정보를 담고 있다.",
+        "I was impressed by his presentation. — 나는 그의 발표에 감명받았다.",
+        "The company aims to expand globally. — 그 회사는 세계적으로 확장하는 것을 목표로 한다.",
+        "We are facing serious environmental problems. — 우리는 심각한 환경 문제에 직면해 있다.",
+        "The teacher encouraged students to ask questions. — 선생님은 학생들이 질문하도록 격려했다.",
+        "We should make decisions carefully. — 우리는 신중하게 결정을 내려야 한다.",
+        "He is eager to learn new skills. — 그는 새로운 기술을 배우기를 열망한다.",
+        "The discussion lasted for hours. — 토론은 몇 시간 동안 지속되었다.",
+        "We need to adapt to change. — 우리는 변화에 적응해야 한다.",
+        "The problem remains unsolved. — 그 문제는 아직 해결되지 않았다.",
+        "We should protect endangered animals. — 우리는 멸종 위기 동물을 보호해야 한다.",
+        "The teacher explained the concept clearly. — 선생님은 개념을 명확하게 설명했다.",
+        "The article raised an important issue. — 그 기사는 중요한 문제를 제기했다.",
+        "Technology continues to evolve rapidly. — 기술은 계속 빠르게 발전하고 있다.",
+        "We should focus on long-term goals. — 우리는 장기적인 목표에 집중해야 한다.",
+        "The government announced new regulations. — 정부는 새로운 규정을 발표했다.",
+        "Public opinion can shift very quickly online. — 여론은 온라인에서 매우 빠르게 바뀔 수 있다.",
+        "We need to improve our communication skills. — 우리는 의사소통 능력을 향상시켜야 한다.",
+        "The project requires careful planning. — 그 프로젝트는 신중한 계획이 필요하다.",
+        "The internet provides access to vast information. — 인터넷은 방대한 정보에 접근할 수 있게 해준다.",
+        "Reflecting on mistakes helps us grow faster. — 실수를 돌아보는 것은 우리가 더 빨리 성장하도록 돕는다.",
+        "The problem became more complicated. — 문제는 더 복잡해졌다.",
+        "I am grateful for your support. — 당신의 지원에 감사드립니다.",
+        "The event attracted many visitors. — 그 행사는 많은 방문객을 끌어들였다.",
+        "We should value honesty and trust. — 우리는 정직과 신뢰를 소중히 여겨야 한다.",
+        "He finally realized his mistake. — 그는 마침내 자신의 실수를 깨달았다.",
+        "The report contains accurate data. — 그 보고서는 정확한 데이터를 포함하고 있다.",
+        "The city has changed dramatically. — 그 도시는 극적으로 변했다.",
+        "We need to prepare for unexpected situations. — 우리는 예상치 못한 상황에 대비해야 한다.",
+        "The company launched a new product. — 그 회사는 새로운 제품을 출시했다.",
+        "The economy is recovering slowly. — 경제는 천천히 회복되고 있다.",
+        "The students were eager to learn. — 학생들은 배우기를 열망했다.",
+        "The issue must be solved immediately. — 그 문제는 즉시 해결되어야 한다.",
+        "The project was completed successfully. — 그 프로젝트는 성공적으로 완료되었다.",
+        "We should take responsibility for our actions. — 우리는 우리의 행동에 책임을 져야 한다.",
+        "The lecture inspired many students. — 그 강의는 많은 학생들에게 영감을 주었다.",
+        "We need to manage our time efficiently. — 우리는 시간을 효율적으로 관리해야 한다.",
+        "The new system improved productivity. — 새로운 시스템은 생산성을 향상시켰다.",
+        "We should respect cultural differences. — 우리는 문화적 차이를 존중해야 한다.",
+        "The discussion led to a better solution. — 그 토론은 더 나은 해결책으로 이어졌다.",
+        "She is confident in her abilities. — 그녀는 자신의 능력에 자신감이 있다.",
+        "We should always keep learning new things. — 우리는 항상 새로운 것을 배워야 한다.",
+        "The problem can be solved through cooperation. — 그 문제는 협력을 통해 해결될 수 있다.",
+        "I believe consistent effort leads to success. — 나는 꾸준한 노력이 성공으로 이어진다고 믿는다.",
+        "Hard work eventually pays off. — 노력은 결국 보상받는다.",
+        "The more you learn, the more you realize. — 더 많이 배울수록 더 많은 것을 깨닫는다.",
+        "I need some time to think about it. — 그것에 대해 생각할 시간이 필요하다.",
+        "Could you explain it one more time? — 한 번만 더 설명해줄 수 있나요?",
+        "I completely understand your point. — 네 의견을 완전히 이해한다.",
+        "I don't feel well today. — 오늘 몸이 좋지 않다.",
+        "I’m glad to hear that. — 그 말을 들으니 기쁘다.",
+        "I’m sorry for the misunderstanding. — 오해에 대해 미안하다.",
+        "Please give me a moment. — 잠시만 기다려 주세요.",
+        "I’ll do my best. — 최선을 다하겠다.",
+        "I’m proud of your progress. — 네 발전이 자랑스럽다.",
+        "I appreciate your honesty. — 네 솔직함에 감사한다.",
+        "I’m getting better little by little. — 나는 조금씩 나아지고 있다.",
+        "I’ll think about your suggestion. — 네 제안을 생각해볼게.",
+        "I’m worried about the future. — 나는 미래가 걱정된다.",
+        "We need to stay focused. — 우리는 집중을 유지해야 한다.",
+        "I try to learn something new every day. — 나는 매일 새로운 것을 배우려고 노력한다.",
+        "He always keeps his promises. — 그는 항상 약속을 지킨다.",
+        "We should be careful with our words. — 우리는 우리의 말을 조심해야 한다.",
+        "I’m happy with my decision. — 나는 내 결정에 만족한다.",
+        "She has a positive attitude toward life. — 그녀는 삶에 대해 긍정적인 태도를 가지고 있다.",
+        "The company is facing financial difficulties. — 그 회사는 재정적 어려움에 직면해 있다.",
+        "We should reduce unnecessary expenses. — 우리는 불필요한 지출을 줄여야 한다.",
+        "He made a significant contribution to the project. — 그는 프로젝트에 중요한 기여를 했다.",
+        "The government plans to increase taxes. — 정부는 세금을 인상할 계획이다.",
+        "The students participated actively in class. — 학생들은 수업에 적극적으로 참여했다.",
+        "The scientist conducted several experiments. — 그 과학자는 여러 실험을 수행했다.",
+        "The company invests heavily in research. — 그 회사는 연구에 많은 투자를 한다.",
+        "We should think critically before making decisions. — 우리는 결정을 내리기 전에 비판적으로 사고해야 한다.",
+        "He failed to keep his promise. — 그는 약속을 지키지 못했다.",
+        "I’m looking for a better opportunity. — 나는 더 좋은 기회를 찾고 있다.",
+        "She tends to worry too much. — 그녀는 너무 많이 걱정하는 경향이 있다.",
+        "The machine stopped working suddenly. — 기계가 갑자기 작동을 멈췄다.",
+        "I couldn’t concentrate on my work. — 나는 일에 집중할 수 없었다.",
+        "The evidence clearly supports his argument. — 증거는 그의 주장을 분명히 뒷받침한다.",
+        "We should avoid making the same mistake again. — 우리는 같은 실수를 다시 하지 말아야 한다.",
+        "The company expanded its business overseas. — 그 회사는 사업을 해외로 확장했다.",
+        "I’m satisfied with the progress I’ve made. — 나는 내가 이룬 발전에 만족한다.",
+        "The lecture was informative and interesting. — 강의는 유익하고 흥미로웠다.",
+        "We should make the best use of our time. — 우리는 시간을 최대한 활용해야 한다.",
+        "The discussion became more serious. — 토론은 더 진지해졌다.",
+        "He showed great interest in science. — 그는 과학에 큰 관심을 보였다.",
+        "The company needs to improve customer satisfaction. — 그 회사는 고객 만족도를 향상시킬 필요가 있다.",
+        "We should respect each other’s opinions. — 우리는 서로의 의견을 존중해야 한다.",
+        "He apologized for the misunderstanding. — 그는 오해에 대해 사과했다.",
+        "I try to maintain a healthy lifestyle. — 나는 건강한 생활방식을 유지하려고 노력한다.",
+        "The problem requires immediate attention. — 그 문제는 즉각적인 관심이 필요하다.",
+        "We need to cooperate to solve this issue. — 우리는 이 문제를 해결하기 위해 협력해야 한다.",
+        "The teacher encouraged creative thinking. — 선생님은 창의적 사고를 장려했다.",
+        "I’m getting used to speaking English. — 나는 영어 말하는 것에 익숙해지고 있다.",
+        "He worked hard to achieve his goals. — 그는 목표를 달성하기 위해 열심히 일했다.",
+        "The internet has changed our lives dramatically. — 인터넷은 우리의 삶을 극적으로 바꾸었다.",
+        "We should prepare for future challenges. — 우리는 미래의 도전에 대비해야 한다.",
+        "The economy depends heavily on technology. — 경제는 기술에 크게 의존한다.",
+        "I was surprised by the result. — 나는 그 결과에 놀랐다.",
+        "She devoted herself to helping others. — 그녀는 다른 사람들을 돕는 데 헌신했다.",
+        "We should never stop learning. — 우리는 절대 배움을 멈추면 안 된다.",
+        "The company adopted a new strategy. — 그 회사는 새로운 전략을 채택했다.",
+        "He was promoted to manager last year. — 그는 작년에 관리자으로 승진했다.",
+        "We need to improve public transportation. — 우리는 대중교통을 개선해야 한다.",
+        "The article dealt with environmental issues. — 그 기사는 환경 문제를 다루었다.",
+        "I’m grateful for this opportunity. — 나는 이 기회에 감사한다.",
+        "We should focus on solving the problem. — 우리는 문제 해결에 집중해야 한다.",
+        "The project turned out to be successful. — 그 프로젝트는 성공적으로 끝났다.",
+        "He made an effort to change himself. — 그는 자신을 바꾸기 위해 노력했다.",
+        "The company is trying to reduce costs. — 그 회사는 비용을 줄이려고 노력 중이다.",
+        "I don’t feel like going out tonight. — 오늘 밤은 나가고 싶지 않다.",
+        "The weather has been unpredictable lately. — 최근 날씨는 예측하기 어렵다.",
+        "We should always tell the truth. — 우리는 항상 진실을 말해야 한다.",
+        "The situation became more complicated. — 상황은 더 복잡해졌다.",
+        "I learned a valuable lesson from that experience. — 나는 그 경험으로부터 가치 있는 교훈을 배웠다.",
+        "She was deeply influenced by her parents. — 그녀는 부모님에게 깊은 영향을 받았다.",
+        "We should think before we act. — 우리는 행동하기 전에 생각해야 한다.",
+        "The government introduced a new policy. — 정부는 새로운 정책을 도입했다.",
+        "He was disappointed with the outcome. — 그는 결과에 실망했다.",
+        "The students were motivated to study harder. — 학생들은 더 열심히 공부할 동기를 얻었다.",
+        "We need to communicate more effectively. — 우리는 더 효과적으로 의사소통해야 한다.",
+        "The book provides useful advice. — 그 책은 유용한 조언을 제공한다.",
+        "She managed to overcome her fear. — 그녀는 두려움을 극복하는 데 성공했다.",
+        "We should be open to new ideas. — 우리는 새로운 아이디어에 열려 있어야 한다.",
+        "The company achieved remarkable growth. — 그 회사는 놀라운 성장을 이뤘다.",
+        "I try to stay calm under pressure. — 나는 압박 속에서도 침착하려고 노력한다.",
+        "The city attracts many tourists every year. — 그 도시는 매년 많은 관광객을 끌어들인다.",
+        "We should support each other. — 우리는 서로를 도와야 한다.",
+        "He was recognized for his achievements. — 그는 자신의 업적으로 인정받았다.",
+        "The meeting lasted longer than expected. — 회의는 예상보다 오래 지속되었다.",
+        "I’m confident that things will improve. — 나는 상황이 좋아질 것이라고 확신한다.",
+        "The company plans to hire more employees. — 그 회사는 더 많은 직원을 채용할 계획이다.",
+        "We should avoid unnecessary conflict. — 우리는 불필요한 갈등을 피해야 한다.",
+        "The report was submitted on time. — 그 보고서는 제시간에 제출되었다.",
+        "I’ve learned a lot from my mistakes. — 나는 내 실수로부터 많은 것을 배웠다.",
+        "The students asked thoughtful questions. — 학생들은 사려 깊은 질문을 했다.",
+        "We need to consider all possible options. — 우리는 가능한 모든 선택지를 고려해야 한다.",
+        "The problem can be solved through discussion. — 그 문제는 토론을 통해 해결될 수 있다.",
+        "I’m trying to become more confident. — 나는 더 자신감 있는 사람이 되려고 노력 중이다.",
+        "The company provides excellent customer service. — 그 회사는 훌륭한 고객 서비스를 제공한다.",
+        "We should manage our stress effectively. — 우리는 스트레스를 효과적으로 관리해야 한다.",
+        "He always treats people with respect. — 그는 항상 사람들을 존중하며 대한다.",
+        "The project requires teamwork and communication. — 그 프로젝트는 팀워크와 의사소통을 요구한다.",
+        "I try to see things positively. — 나는 긍정적으로 보려고 노력한다.",
+        "The internet allows people to connect easily. — 인터넷은 사람들이 쉽게 연결될 수 있게 해준다.",
+        "We should take care of our health. — 우리는 건강을 돌봐야 한다.",
+        "The teacher explained the topic in detail. — 선생님은 그 주제를 자세히 설명했다.",
+        "I’m interested in improving my speaking skills. — 나는 말하기 실력을 향상시키는 데 관심이 있다.",
+        "The company values creativity and innovation. — 그 회사는 창의성과 혁신을 중요하게 여긴다.",
+        "We should learn to accept criticism. — 우리는 비판을 받아들이는 법을 배워야 한다.",
+        "He remained calm in a difficult situation. — 그는 어려운 상황에서도 침착함을 유지했다.",
+        "The event was canceled because of the rain. — 그 행사는 비 때문에 취소되었다.",
+        "I try to make good decisions. — 나는 좋은 결정을 내리려고 노력한다.",
+        "The economy has changed significantly. — 경제는 크게 변화했다.",
+        "We should use technology wisely. — 우리는 기술을 현명하게 사용해야 한다.",
+        "The students worked together on the project. — 학생들은 프로젝트에서 함께 협력했다.",
+        "I’m willing to learn from others. — 나는 다른 사람들로부터 배우려는 의지가 있다.",
+        "The company needs to adapt quickly. — 그 회사는 빠르게 적응할 필요가 있다.",
+        "We should appreciate what we have. — 우리는 우리가 가진 것에 감사해야 한다.",
+        "He spent years developing his skills. — 그는 자신의 기술을 발전시키는 데 수년을 보냈다.",
+        "The article provided valuable insights. — 그 기사는 가치 있는 통찰을 제공했다.",
+        "I’m trying to improve my listening skills. — 나는 듣기 실력을 향상시키려고 노력 중이다.",
+        "The government should invest in education. — 정부는 교육에 투자해야 한다.",
+        "We should think about the consequences of our actions. — 우리는 우리의 행동 결과를 생각해야 한다.",
+        "The company achieved its goals successfully. — 그 회사는 목표를 성공적으로 달성했다.",
+        "I learned how to manage my time better. — 나는 시간을 더 잘 관리하는 법을 배웠다.",
+        "The students showed great enthusiasm. — 학생들은 큰 열정을 보였다.",
+        "We should encourage people to share ideas. — 우리는 사람들이 아이디어를 공유하도록 장려해야 한다.",
+        "The project helped improve communication skills. — 그 프로젝트는 의사소통 능력 향상에 도움을 주었다.",
+        "I try to stay motivated every day. — 나는 매일 동기부여를 유지하려고 노력한다.",
+        "The city has become more crowded. — 그 도시는 더 혼잡해졌다.",
+        "We should make learning enjoyable. — 우리는 배움을 즐겁게 만들어야 한다.",
+        "He gained confidence through practice. — 그는 연습을 통해 자신감을 얻었다.",
+        "The company introduced innovative products. — 그 회사는 혁신적인 제품들을 출시했다.",
+        "I believe communication is very important. — 나는 의사소통이 매우 중요하다고 믿는다.",
+        "The teacher motivated students to participate. — 선생님은 학생들이 참여하도록 동기를 부여했다.",
+        "We should respect different cultures and traditions. — 우리는 다양한 문화와 전통을 존중해야 한다.",
+        "The meeting focused on solving key issues. — 회의는 핵심 문제 해결에 집중했다.",
+        "I’m learning to express myself more clearly. — 나는 더 명확하게 표현하는 법을 배우고 있다.",
+        "The company continues to grow steadily. — 그 회사는 꾸준히 성장하고 있다.",
+        "We should remain optimistic about the future. — 우리는 미래에 대해 낙관적이어야 한다.",
+        "He developed strong problem-solving skills. — 그는 강한 문제 해결 능력을 발전시켰다.",
+        "The students improved their English significantly. — 학생들은 영어 실력을 크게 향상시켰다.",
+        "We should always keep an open mind. — 우리는 항상 열린 마음을 가져야 한다.",
+        "The internet makes information easy to access. — 인터넷은 정보 접근을 쉽게 만든다.",
+        "I’m trying to become a better listener. — 나는 더 좋은 경청자가 되려고 노력 중이다.",
+        "The company encourages teamwork and creativity. — 그 회사는 팀워크와 창의성을 장려한다.",
+        "We should focus on continuous improvement. — 우리는 지속적인 발전에 집중해야 한다.",
+        "He learned the importance of patience. — 그는 인내의 중요성을 배웠다.",
+        "The project exceeded everyone’s expectations. — 그 프로젝트는 모두의 기대를 뛰어넘었다.",
+        "I try to communicate honestly with people. — 나는 사람들과 솔직하게 소통하려고 노력한다.",
+        "The government is working to improve public services. — 정부는 공공서비스 개선을 위해 노력 중이다.",
+        "We should use our time more productively. — 우리는 시간을 더 생산적으로 사용해야 한다.",
+        "The company succeeded because of innovation. — 그 회사는 혁신 덕분에 성공했다.",
+        "I’ve become more confident over time. — 나는 시간이 지나며 더 자신감 있어졌다.",
+        "The students learned valuable teamwork skills. — 학생들은 가치 있는 팀워크 기술을 배웠다.",
+        "We should continue striving for improvement. — 우리는 계속 발전을 위해 노력해야 한다.",
+        "The lecture gave me a new perspective. — 그 강의는 내게 새로운 관점을 주었다.",
+        "I try to stay organized and focused. — 나는 체계적이고 집중된 상태를 유지하려고 노력한다.",
+        "The company adapted successfully to change. — 그 회사는 변화에 성공적으로 적응했다.",
+        "We should always be willing to learn. — 우리는 항상 배우려는 자세를 가져야 한다.",
+        "He inspired others through his actions. — 그는 자신의 행동으로 다른 사람들에게 영감을 주었다.",
+        "The students developed critical thinking skills. — 학생들은 비판적 사고 능력을 발전시켰다.",
+        "We should value honesty in communication. — 우리는 의사소통에서 정직을 중요하게 여겨야 한다.",
+        "The company improved efficiency through technology. — 그 회사는 기술을 통해 효율성을 향상시켰다.",
+        "I’ve learned the importance of consistency. — 나는 꾸준함의 중요성을 배웠다.",
+        "The project required careful planning and cooperation. — 그 프로젝트는 신중한 계획과 협력을 요구했다.",
+        "We should encourage positive communication. — 우리는 긍정적인 의사소통을 장려해야 한다.",
+        "The company achieved success through teamwork. — 그 회사는 팀워크를 통해 성공을 이뤘다.",
+        "I’m becoming more comfortable speaking English. — 나는 영어 말하기가 점점 더 편해지고 있다.",
+        "The students became more confident over time. — 학생들은 시간이 지나며 더 자신감 있어졌다.",
+        "We should work toward meaningful goals. — 우리는 의미 있는 목표를 향해 노력해야 한다.",
+        "The company continues to improve its services. — 그 회사는 계속 서비스를 개선하고 있다.",
+        "I learned to manage stress more effectively. — 나는 스트레스를 더 효과적으로 관리하는 법을 배웠다.",
+        "The lecture emphasized the importance of communication. — 그 강의는 의사소통의 중요성을 강조했다.",
+        "We should respect people with different opinions. — 우리는 다른 의견을 가진 사람들을 존중해야 한다.",
+        "The company is preparing for future growth. — 그 회사는 미래 성장을 준비하고 있다.",
+        "I try to stay positive even in difficult situations. — 나는 어려운 상황에서도 긍정적으로 지내려고 노력한다.",
+        "The students worked hard to achieve their goals. — 학생들은 목표 달성을 위해 열심히 노력했다.",
+        "We should continue learning throughout our lives. — 우리는 평생 계속 배워야 한다.",
+        "The company focuses on customer satisfaction. — 그 회사는 고객 만족에 집중한다.",
+        "I’m improving little by little every day. — 나는 매일 조금씩 발전하고 있다.",
+        "The project helped strengthen teamwork. — 그 프로젝트는 팀워크를 강화하는 데 도움을 주었다.",
+        "We should communicate clearly and respectfully. — 우리는 명확하고 존중하는 방식으로 소통해야 한다.",
+        "The company is working on innovative solutions. — 그 회사는 혁신적인 해결책을 개발 중이다.",
+        "I’ve learned to stay calm under pressure. — 나는 압박 속에서도 침착함을 유지하는 법을 배웠다.",
+        "The students gained valuable experience. — 학생들은 가치 있는 경험을 얻었다.",
+        "We should always try our best. — 우리는 항상 최선을 다해야 한다.",
+        "The company values honesty and responsibility. — 그 회사는 정직과 책임감을 중요하게 여긴다.",
+        "I’m learning to express my thoughts more clearly. — 나는 내 생각을 더 명확하게 표현하는 법을 배우고 있다.",
+        "The students improved through consistent practice. — 학생들은 꾸준한 연습을 통해 향상되었다.",
+        "We should support people who are struggling. — 우리는 어려움을 겪는 사람들을 도와야 한다.",
+        "The company achieved long-term success through innovation. — 그 회사는 혁신을 통해 장기적인 성공을 이뤘다.",
+        "I’ve realized the importance of effective communication. — 나는 효과적인 의사소통의 중요성을 깨달았다.",
+        "The lecture encouraged students to think independently. — 그 강의는 학생들이 독립적으로 사고하도록 장려했다.",
+        "We should always keep improving ourselves. — 우리는 항상 스스로를 발전시켜야 한다.",
+        "The company is committed to continuous improvement. — 그 회사는 지속적인 발전에 전념하고 있다.",
+        "I’m becoming more confident in speaking English. — 나는 영어 말하기에 점점 더 자신감을 얻고 있다.",
+        "The students learned how to solve problems creatively. — 학생들은 문제를 창의적으로 해결하는 방법을 배웠다.",
+        "Consistent learning and practice lead to real progress. — 꾸준한 학습과 연습은 진정한 발전으로 이어진다."
+      ];
+
+      function parseLines(lines) {
+        return lines
+          .map((line, index) => {
+            const separator = line.includes(" — ") ? " — " : " - ";
+            const parts = line.split(separator);
+            return {
+              id: index + 1,
+              english: (parts[0] || "").trim(),
+              korean: (parts[1] || "").trim(),
+              mastered: false,
+              starred: false,
+            };
+          })
+          .filter((item) => item.english && item.korean);
+      }
+
+      function normalize(text) {
+        return String(text)
+          .toLowerCase()
+          .replace(/[^a-z0-9가-힣\s]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function runSelfTests() {
+        const parsed = parseLines(["Hello. — 안녕.", "I agree. - 동의해."]);
+        console.assert(parsed.length === 2, "parseLines should parse both dash styles");
+        console.assert(parsed[0].english === "Hello.", "parseLines should keep English text");
+        console.assert(parsed[1].korean === "동의해.", "parseLines should keep Korean text");
+        console.assert(normalize("I don't THINK so!") === "i dont think so", "normalize should clean punctuation");
+        console.assert(parseLines(["Broken line"]).length === 0, "parseLines should ignore invalid lines");
+        console.assert(parseLines(DEFAULT_LINES).length === DEFAULT_LINES.length, "all default lines should parse correctly");
+        console.assert(DEFAULT_LINES.length === 365, "DEFAULT_LINES should contain all 365 sentences");
+      }
+
+      runSelfTests();
+
+      const STORAGE_KEY = "const-english-sentences-v4";
+      const state = {
+        sentences: [],
+        index: 0,
+        showKorean: true,
+        mode: "card",
+        query: "",
+        answer: "",
+        feedback: "",
+        hasAutoSpokenOnFirstCard: false,
+        shouldSpeakAfterRender: false,
+        isAutoplaying: false,
+        autoplayTimerId: null,
+        speechFallbackTimerId: null,
+      };
+
+      function loadSentences() {
+        try {
+          const saved = window.localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length >= DEFAULT_LINES.length) return parsed;
+          }
+        } catch (error) {
+          console.warn("Saved data could not be loaded", error);
+        }
+        return parseLines(DEFAULT_LINES);
+      }
+
+      state.sentences = loadSentences();
+
+      function persist() {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sentences));
+        } catch (error) {
+          console.warn("Progress could not be saved", error);
+        }
+      }
+
+      function getFiltered() {
+        const q = normalize(state.query);
+        if (!q) return state.sentences;
+        return state.sentences.filter((s) => normalize(`${s.english} ${s.korean}`).includes(q));
+      }
+
+      function getCurrent(filtered) {
+        return filtered[state.index] || filtered[0] || state.sentences[0] || null;
+      }
+
+      function safeSetIndex(next, filtered) {
+        if (filtered.length === 0) {
+          state.index = 0;
+          return;
+        }
+        state.index = (next + filtered.length) % filtered.length;
+        state.answer = "";
+        state.feedback = "";
+      }
+
+      function updateCurrent(patch, current) {
+        if (!current) return;
+        state.sentences = state.sentences.map((s) => (s.id === current.id ? { ...s, ...patch } : s));
+        persist();
+      }
+
+      function clearAutoplayTimer() {
+        if (state.autoplayTimerId) {
+          window.clearTimeout(state.autoplayTimerId);
+          state.autoplayTimerId = null;
+        }
+      }
+
+      function clearSpeechFallbackTimer() {
+        if (state.speechFallbackTimerId) {
+          window.clearTimeout(state.speechFallbackTimerId);
+          state.speechFallbackTimerId = null;
+        }
+      }
+
+      function stopAutoplay(options = {}) {
+        const { keepSpeech = false } = options;
+        state.isAutoplaying = false;
+        clearAutoplayTimer();
+        clearSpeechFallbackTimer();
+        if (!keepSpeech && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+      }
+
+      function speak(current, options = {}) {
+        const { onComplete = null } = options;
+        if (!current || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === "undefined") return;
+        try {
+          window.speechSynthesis.cancel();
+          clearSpeechFallbackTimer();
+
+          let completed = false;
+          const finish = () => {
+            if (completed) return;
+            completed = true;
+            clearSpeechFallbackTimer();
+            if (typeof onComplete === "function") onComplete();
+          };
+
+          const englishUtterance = new window.SpeechSynthesisUtterance(current.english);
+          englishUtterance.lang = "en-US";
+          englishUtterance.rate = 0.85;
+
+          const koreanUtterance = new window.SpeechSynthesisUtterance(current.korean);
+          koreanUtterance.lang = "ko-KR";
+          koreanUtterance.rate = 0.9;
+
+          if (typeof onComplete === "function") {
+            koreanUtterance.onend = () => {
+              finish();
+            };
+            koreanUtterance.onerror = () => {
+              finish();
+            };
+
+            const combinedText = `${current.english} ${current.korean}`;
+            const estimatedMs = Math.max(2000, Math.min(12000, combinedText.length * 140));
+            state.speechFallbackTimerId = window.setTimeout(() => {
+              finish();
+            }, estimatedMs);
+          }
+
+          window.speechSynthesis.speak(englishUtterance);
+          window.speechSynthesis.speak(koreanUtterance);
+        } catch (error) {
+          console.warn("Speech playback is unavailable in this browser context", error);
+          clearSpeechFallbackTimer();
+          if (typeof onComplete === "function") onComplete();
+        }
+      }
+
+      function playAutoplayStep() {
+        if (!state.isAutoplaying) return;
+        const fullList = state.sentences;
+        const current = fullList[state.index] || null;
+        if (!current || fullList.length === 0) {
+          stopAutoplay();
+          render();
+          return;
+        }
+
+        speak(current, {
+          onComplete: () => {
+            if (!state.isAutoplaying) return;
+            clearAutoplayTimer();
+            state.autoplayTimerId = window.setTimeout(() => {
+              if (!state.isAutoplaying) return;
+              const fullListNow = state.sentences;
+              if (fullListNow.length === 0) {
+                stopAutoplay();
+                render();
+                return;
+              }
+
+              if (state.index >= fullListNow.length - 1) {
+                stopAutoplay({ keepSpeech: true });
+                render();
+                return;
+              }
+
+              safeSetIndex(state.index + 1, fullListNow);
+              render();
+              playAutoplayStep();
+            }, 100);
+          },
+        });
+      }
+
+      function toggleAutoplay() {
+        if (state.isAutoplaying) {
+          stopAutoplay();
+          render();
+          return;
+        }
+
+        const filteredBeforeStart = getFiltered();
+        const currentBeforeStart = getCurrent(filteredBeforeStart);
+        if (currentBeforeStart) {
+          const fullIndex = state.sentences.findIndex((s) => s.id === currentBeforeStart.id);
+          if (fullIndex >= 0) {
+            state.index = fullIndex;
+          }
+        }
+        state.query = "";
+
+        state.isAutoplaying = true;
+        playAutoplayStep();
+        render();
+      }
+
+      function checkAnswer(current) {
+        if (!current) return;
+        const user = normalize(state.answer);
+        const target = normalize(current.english);
+        if (!user) {
+          state.feedback = "영어 문장을 입력해보세요.";
+          return;
+        }
+        if (user === target) {
+          state.feedback = "정답입니다. 암기 완료로 표시했습니다.";
+          updateCurrent({ mastered: true }, current);
+          return;
+        }
+        if (target.includes(user) || user.includes(target.slice(0, Math.max(5, Math.floor(target.length * 0.6))))) {
+          state.feedback = "거의 맞았습니다. 어순과 빠진 단어를 확인해보세요.";
+          return;
+        }
+        state.feedback = "아직 달라요. 뜻을 보고 다시 입력해보세요.";
+      }
+
+      function resetProgress() {
+        state.sentences = state.sentences.map((s) => ({ ...s, mastered: false, starred: false }));
+        state.index = 0;
+        state.answer = "";
+        state.feedback = "";
+        persist();
+      }
+
+      function render() {
+        const root = document.getElementById("root");
+        const filtered = getFiltered();
+        const current = getCurrent(filtered);
+
+        if (!current) {
+          root.innerHTML = `<div class=\"min-h-screen p-6\">학습할 문장이 없습니다.</div>`;
+          return;
+        }
+
+        const masteredCount = state.sentences.filter((s) => s.mastered).length;
+        const progress = state.sentences.length ? Math.round((masteredCount / state.sentences.length) * 100) : 0;
+
+        root.innerHTML = `
+          <div class="min-h-screen p-4 text-slate-900">
+            <div class="mx-auto w-full space-y-5">
+              <header class="rounded-3xl bg-white p-5 shadow-sm">
+                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-500">English Core Trainer</p>
+                    <h1 class="text-2xl font-bold md:text-4xl">365문장으로 영어 마스터하기</h1>
+                    <p class="mt-2 text-sm text-slate-600">카드 학습, 뜻 가리기, 듣기, 타이핑 퀴즈, 진도 저장을 한 화면에서 연습합니다.</p>
+                  </div>
+                  <div class="grid grid-cols-3 gap-2">
+                    <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${state.sentences.length}</div></div>
+                    <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
+                    <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">진도</div><div class="text-xl font-extrabold">${progress}%</div></div>
+                  </div>
+                </div>
+                <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
+              </header>
+
+              <section class="grid gap-4 md:grid-cols-[1fr_320px]">
+                <main class="rounded-3xl bg-white p-5 shadow-sm md:p-8">
+                  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex gap-2">
+                      <button data-action="set-mode-card" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.mode === "card" ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">카드</button>
+                      <button data-action="set-mode-quiz" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.mode === "quiz" ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">퀴즈</button>
+                    </div>
+                    <div class="flex gap-2">
+                      <button data-action="speak" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">듣기</button>
+                      <button data-action="toggle-star" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">${current.starred ? "★ 중요" : "☆ 중요"}</button>
+                    </div>
+                  </div>
+
+                  <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
+                    <div class="mb-5 flex items-center justify-between gap-3">
+                      <span class="rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm">#${current.id}</span>
+                      ${current.mastered ? '<span class="rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-700 shadow-sm">암기완료</span>' : ""}
+                    </div>
+                    <p class="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${current.english}</p>
+
+                    ${state.mode === "card" ? `
+                      <div class="mt-8 space-y-5">
+                        <button data-action="toggle-korean" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">${state.showKorean ? "뜻 가리기" : "뜻 보기"}</button>
+                        ${state.showKorean ? `<p class=\"rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm\">${current.korean}</p>` : ""}
+                      </div>
+                    ` : `
+                      <div class="mt-8 space-y-4">
+                        <p class="rounded-3xl bg-white p-5 text-xl font-bold text-slate-700 shadow-sm">${current.korean}</p>
+                        <input id="answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="영어 문장을 직접 입력하세요" class="w-full rounded-2xl border border-slate-200 bg-white p-4 text-lg outline-none focus:ring-2 focus:ring-slate-900" />
+                        <div class="flex flex-wrap gap-2">
+                          <button data-action="check-answer" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">정답 확인</button>
+                          <button data-action="fill-answer" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">정답 보기</button>
+                        </div>
+                        ${state.feedback ? `<p class=\"rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm\">${state.feedback}</p>` : ""}
+                      </div>
+                    `}
+                  </div>
+
+                  <div class="mt-5 flex flex-wrap justify-between gap-2">
+                    <button data-action="prev" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">이전</button>
+                    <div class="flex gap-2">
+                      <button data-action="random" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">랜덤</button>
+                      <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 중지" : "자동재생"}</button>
+                      <button data-action="toggle-mastered" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${current.mastered ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">암기 표시</button>
+                    </div>
+                    <button data-action="next" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">다음</button>
+                  </div>
+                </main>
+
+                <aside class="space-y-4">
+                  <div class="rounded-3xl bg-white p-4 shadow-sm">
+                    <input id="query-input" value="${state.query.replaceAll('"', '&quot;')}" placeholder="영어/한글 검색" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-slate-900" />
+                    <p class="mt-3 text-sm text-slate-500">검색 결과 ${filtered.length}개</p>
+                  </div>
+
+                  <div class="max-h-[520px] space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
+                    ${filtered
+                      .map((s, i) => `
+                        <button data-action="pick" data-pick-index="${i}" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === current.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
+                          <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-bold">#${s.id}</span>
+                            <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 완료" : ""}</span>
+                          </div>
+                          <p class="mt-1 text-sm font-semibold">${s.english}</p>
+                          <p class="mt-1 text-xs ${s.id === current.id ? "text-slate-200" : "text-slate-500"}">${s.korean}</p>
+                        </button>
+                      `)
+                      .join("")}
+                  </div>
+
+                  <button data-action="reset-progress" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">진도 초기화</button>
+                </aside>
+              </section>
+            </div>
+          </div>
+        `;
+
+        const answerInput = document.getElementById("answer-input");
+        if (answerInput) {
+          answerInput.addEventListener("input", (e) => {
+            state.answer = e.target.value;
+          });
+          answerInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              checkAnswer(current);
+              render();
+            }
+          });
+        }
+
+        const queryInput = document.getElementById("query-input");
+        if (queryInput) {
+          queryInput.addEventListener("input", (e) => {
+            state.query = e.target.value;
+            state.index = 0;
+            render();
+          });
+        }
+
+        const listWrap = document.getElementById("list-wrap");
+        if (listWrap) {
+          const activeItem = listWrap.querySelector(`[data-sentence-id="${current.id}"]`);
+          if (activeItem) {
+            const targetTop = activeItem.offsetTop - listWrap.offsetTop;
+            listWrap.scrollTop = Math.max(0, targetTop - 8);
+          }
+        }
+
+        root.querySelectorAll("[data-action]").forEach((el) => {
+          el.addEventListener("click", () => {
+            const action = el.getAttribute("data-action");
+            if (state.isAutoplaying && action !== "toggle-autoplay") {
+              stopAutoplay();
+            }
+            const nextFiltered = getFiltered();
+            const nextCurrent = getCurrent(nextFiltered);
+
+            if (action === "set-mode-card") state.mode = "card";
+            if (action === "set-mode-quiz") state.mode = "quiz";
+            if (action === "speak") speak(nextCurrent);
+            if (action === "toggle-star") updateCurrent({ starred: !nextCurrent.starred }, nextCurrent);
+            if (action === "toggle-korean") state.showKorean = !state.showKorean;
+            if (action === "check-answer") checkAnswer(nextCurrent);
+            if (action === "fill-answer") state.answer = nextCurrent.english;
+            if (action === "prev") safeSetIndex(state.index - 1, nextFiltered);
+            if (action === "next") safeSetIndex(state.index + 1, nextFiltered);
+            if (action === "random") {
+              if (nextFiltered.length >= 2) {
+                let rand = Math.floor(Math.random() * nextFiltered.length);
+                if (rand === state.index) rand = (rand + 1) % nextFiltered.length;
+                safeSetIndex(rand, nextFiltered);
+              }
+            }
+            if (action === "toggle-mastered") updateCurrent({ mastered: !nextCurrent.mastered }, nextCurrent);
+            if (action === "reset-progress") resetProgress();
+            if (action === "toggle-autoplay") toggleAutoplay();
+            if (action === "pick") {
+              const i = Number(el.getAttribute("data-pick-index"));
+              safeSetIndex(i, nextFiltered);
+            }
+
+            if (action === "prev" || action === "next" || action === "random" || action === "pick") {
+              state.shouldSpeakAfterRender = true;
+            }
+
+            render();
+          });
+        });
+
+        if (!state.hasAutoSpokenOnFirstCard) {
+          state.hasAutoSpokenOnFirstCard = true;
+          speak(current);
+        }
+
+        if (state.shouldSpeakAfterRender) {
+          state.shouldSpeakAfterRender = false;
+          speak(current);
+        }
+      }
+
+      render();
+    </script>
+  </body>
+</html>
