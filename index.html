@@ -393,6 +393,17 @@
           .filter((item) => item.english && item.korean);
       }
 
+      function stripPeriodsFromSentences(items) {
+        if (!Array.isArray(items)) return [];
+        return items.map((item, index) => ({
+          id: Number(item?.id) || index + 1,
+          english: String(item?.english || "").replaceAll(".", "").trim(),
+          korean: String(item?.korean || "").replaceAll(".", "").trim(),
+          mastered: Boolean(item?.mastered),
+          starred: Boolean(item?.starred),
+        })).filter((item) => item.english && item.korean);
+      }
+
       function normalize(text) {
         return String(text)
           .toLowerCase()
@@ -461,7 +472,7 @@
         shouldRefocusCardInput: false,
         isComposing: false,
         typingRafId: null,
-        isRandomOn: false,
+        isRandomOn: true,
         isListenOn: true,
         isAutoplaying: false,
         autoplayTimerId: null,
@@ -473,7 +484,9 @@
           const saved = window.localStorage.getItem(STORAGE_KEY);
           if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length >= DEFAULT_LINES.length) return parsed;
+            if (Array.isArray(parsed) && parsed.length >= DEFAULT_LINES.length) {
+              return stripPeriodsFromSentences(parsed);
+            }
           }
         } catch (error) {
           console.warn("Saved data could not be loaded", error);
