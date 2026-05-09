@@ -377,12 +377,15 @@
         "Consistent learning and practice lead to real progress. — 꾸준한 학습과 연습은 진정한 발전으로 이어진다."
       ];
 
-      function parseLines(lines) {
-        const normalizeEnglishSentence = (text) => String(text || "")
+      function normalizeEnglishSentence(text) {
+        return String(text || "")
           .replaceAll("’", "'")
           .replaceAll(".", "")
           .replace(/\bI'm\b/g, "I am")
           .trim();
+      }
+
+      function parseLines(lines) {
 
         return lines
           .map((line, index) => {
@@ -401,11 +404,6 @@
 
       function stripPeriodsFromSentences(items) {
         if (!Array.isArray(items)) return [];
-        const normalizeEnglishSentence = (text) => String(text || "")
-          .replaceAll("’", "'")
-          .replaceAll(".", "")
-          .replace(/\bI'm\b/g, "I am")
-          .trim();
 
         return items.map((item, index) => ({
           id: Number(item?.id) || index + 1,
@@ -784,7 +782,7 @@
         economy: "이코노미",
         recovering: "리커버링",
         slowly: "슬로울리",
-        solved: "쏠브드",
+        solved: "솔브드",
         immediately: "이미디에이틀리",
         completed: "컴플리티드",
         committed: "커미티드",
@@ -1047,7 +1045,7 @@
         submit: "써밋",
         report: "리포트",
         friday: "프라이데이",
-        cooperation: "코오퍼레이",
+        cooperation: "코오퍼레이션",
         through: "쓰루",
         manager: "메니져",
         approved: "어프로브드",
@@ -1215,9 +1213,9 @@
             const nextWord = tokens[index + 1] || "";
             const pronunciation = getContextPronunciation(word, nextWord);
             if (!pronunciation) {
-              return `<span class="inline-flex min-w-[44px] flex-col items-center rounded-lg bg-white/60 px-2 py-1"><span class="text-sm font-bold text-slate-800">${escapeHtml(word)}</span><span class="text-[11px] font-semibold text-slate-400">-</span></span>`;
+              return `<span class="inline-flex min-w-[32px] items-center rounded-lg bg-white/60 px-2 py-0.5"><span class="text-[10px] font-semibold text-slate-400">-</span></span>`;
             }
-            return `<span class="inline-flex min-w-[44px] flex-col items-center rounded-lg bg-white/70 px-2 py-1"><span class="text-sm font-bold text-slate-800">${escapeHtml(word)}</span><span class="text-[11px] font-semibold text-slate-500">${escapeHtml(pronunciation)}</span></span>`;
+            return `<span class="inline-flex min-w-[32px] items-center rounded-lg bg-white/70 px-2 py-0.5"><span class="text-sm font-semibold text-slate-600">${escapeHtml(pronunciation)}</span></span>`;
           })
           .join("");
       }
@@ -1531,7 +1529,7 @@
         const progress = state.sentences.length ? Math.round((masteredCount / state.sentences.length) * 100) : 0;
 
         root.innerHTML = `
-          <div class="min-h-screen p-4 text-slate-900">
+          <div class="min-h-screen px-[5vw] py-[2.5vh] text-slate-900">
             <div class="mx-auto w-full space-y-5">
               <header class="rounded-3xl bg-white p-5 shadow-sm">
                 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1552,8 +1550,8 @@
                 <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
               </header>
 
-              <section class="grid gap-4 md:grid-cols-[1fr_320px]">
-                <main class="rounded-3xl bg-white p-5 shadow-sm md:p-8">
+              <section class="grid items-stretch gap-4 md:grid-cols-[1fr_320px]">
+                <main id="main-panel" class="h-full rounded-3xl bg-white p-5 shadow-sm md:p-8">
                   <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
                       <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">#${current.id}</span>
@@ -1567,8 +1565,12 @@
                   </div>
 
                   <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-                    <p id="english-display" class="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${buildTypingMarkup(current.english, state.answer)}</p>
-                    <div class="mt-4 flex flex-wrap gap-2">${buildPronunciationMarkup(current.english)}</div>
+                    <div class="h-[133px] overflow-hidden rounded-2xl bg-white/50 p-3 md:p-4">
+                      <p id="english-display" class="line-clamp-2 text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${buildTypingMarkup(current.english, state.answer)}</p>
+                    </div>
+                    <div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5">
+                      <div class="flex flex-wrap gap-2">${buildPronunciationMarkup(current.english)}</div>
+                    </div>
 
                     <div class="mt-8 space-y-5">
                       <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${current.korean}</p>
@@ -1584,10 +1586,10 @@
                   </div>
                 </main>
 
-                <aside class="space-y-4">
-                  <div class="h-[500px] space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
+                <aside class="self-stretch">
+                  <div class="space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
                     ${state.sentences
-                      .map((s, i) => `
+                      .map((s) => `
                         <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === current.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
                           <div class="flex items-center justify-between gap-2">
                             <span class="text-xs font-bold">#${s.id}</span>
@@ -1644,14 +1646,31 @@
           }
         }
 
-        const listWrap = document.getElementById("list-wrap");
-        if (listWrap) {
-          const activeItem = listWrap.querySelector(`[data-sentence-id="${current.id}"]`);
-          if (activeItem) {
-            const targetTop = activeItem.offsetTop - listWrap.offsetTop;
-            listWrap.scrollTop = Math.max(0, targetTop - 8);
+        const syncListHeightToMainPanel = () => {
+          const listWrap = document.getElementById("list-wrap");
+          const mainPanel = document.getElementById("main-panel");
+          if (!listWrap || !mainPanel) return;
+          const mainVisibleHeight = mainPanel.offsetHeight;
+          if (mainVisibleHeight > 0) {
+            listWrap.style.height = `${mainVisibleHeight}px`;
           }
-        }
+        };
+
+        const scrollCurrentItemToTop = () => {
+          const listWrap = document.getElementById("list-wrap");
+          if (!listWrap) return;
+          const activeItem = listWrap.querySelector(`[data-sentence-id="${current.id}"]`);
+          if (!activeItem) return;
+          const targetTop = activeItem.offsetTop - listWrap.offsetTop;
+          listWrap.scrollTop = Math.max(0, targetTop);
+        };
+
+        syncListHeightToMainPanel();
+        scrollCurrentItemToTop();
+        window.requestAnimationFrame(() => {
+          syncListHeightToMainPanel();
+          scrollCurrentItemToTop();
+        });
 
         root.querySelectorAll("[data-action]").forEach((el) => {
           el.addEventListener("click", () => {
@@ -1659,8 +1678,6 @@
             if (state.isAutoplaying && action !== "toggle-autoplay") {
               stopAutoplay();
             }
-            const nextCurrent = getCurrent();
-
             if (action === "toggle-listen") toggleListen();
             if (action === "toggle-random") state.isRandomOn = !state.isRandomOn;
             if (action === "prev") safeSetIndex(-1, true);
