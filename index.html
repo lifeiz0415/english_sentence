@@ -384,8 +384,8 @@
             const parts = line.split(separator);
             return {
               id: index + 1,
-              english: (parts[0] || "").trim(),
-              korean: (parts[1] || "").trim(),
+              english: (parts[0] || "").replaceAll(".", "").trim(),
+              korean: (parts[1] || "").replaceAll(".", "").trim(),
               mastered: false,
               starred: false,
             };
@@ -401,11 +401,47 @@
           .trim();
       }
 
+      function escapeHtml(text) {
+        return String(text)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function buildTypingMarkup(targetText, typedText) {
+        const target = String(targetText || "");
+        const typed = String(typedText || "");
+        const pieces = [];
+        const max = Math.max(target.length, typed.length);
+
+        for (let i = 0; i < max; i += 1) {
+          const t = target[i];
+          const u = typed[i];
+
+          if (t == null && u != null) {
+            continue;
+          }
+          if (t != null && u == null) {
+            pieces.push(`<span class=\"text-slate-900\">${escapeHtml(t)}</span>`);
+            continue;
+          }
+          if (t === u) {
+            pieces.push(`<span class=\"text-emerald-600\">${escapeHtml(t)}</span>`);
+          } else {
+            pieces.push(`<span class=\"bg-red-100 text-red-600\">${escapeHtml(t)}</span>`);
+          }
+        }
+
+        return pieces.join("");
+      }
+
       function runSelfTests() {
         const parsed = parseLines(["Hello. — 안녕.", "I agree. - 동의해."]);
         console.assert(parsed.length === 2, "parseLines should parse both dash styles");
-        console.assert(parsed[0].english === "Hello.", "parseLines should keep English text");
-        console.assert(parsed[1].korean === "동의해.", "parseLines should keep Korean text");
+        console.assert(parsed[0].english === "Hello", "parseLines should remove periods from English text");
+        console.assert(parsed[1].korean === "동의해", "parseLines should remove periods from Korean text");
         console.assert(normalize("I don't THINK so!") === "i dont think so", "normalize should clean punctuation");
         console.assert(parseLines(["Broken line"]).length === 0, "parseLines should ignore invalid lines");
         console.assert(parseLines(DEFAULT_LINES).length === DEFAULT_LINES.length, "all default lines should parse correctly");
@@ -418,13 +454,13 @@
       const state = {
         sentences: [],
         index: 0,
-        showKorean: true,
-        mode: "card",
-        query: "",
         answer: "",
         feedback: "",
         hasAutoSpokenOnFirstCard: false,
         shouldSpeakAfterRender: false,
+        shouldRefocusCardInput: false,
+        isComposing: false,
+        typingRafId: null,
         isAutoplaying: false,
         autoplayTimerId: null,
         speechFallbackTimerId: null,
@@ -453,22 +489,16 @@
         }
       }
 
-      function getFiltered() {
-        const q = normalize(state.query);
-        if (!q) return state.sentences;
-        return state.sentences.filter((s) => normalize(`${s.english} ${s.korean}`).includes(q));
+      function getCurrent() {
+        return state.sentences[state.index] || state.sentences[0] || null;
       }
 
-      function getCurrent(filtered) {
-        return filtered[state.index] || filtered[0] || state.sentences[0] || null;
-      }
-
-      function safeSetIndex(next, filtered) {
-        if (filtered.length === 0) {
+      function safeSetIndex(next) {
+        if (state.sentences.length === 0) {
           state.index = 0;
           return;
         }
-        state.index = (next + filtered.length) % filtered.length;
+        state.index = (next + state.sentences.length) % state.sentences.length;
         state.answer = "";
         state.feedback = "";
       }
@@ -491,6 +521,22 @@
           window.clearTimeout(state.speechFallbackTimerId);
           state.speechFallbackTimerId = null;
         }
+      }
+
+      function cancelTypingRaf() {
+        if (state.typingRafId != null) {
+          window.cancelAnimationFrame(state.typingRafId);
+          state.typingRafId = null;
+        }
+      }
+
+      function scheduleTypingHighlightUpdate(englishDisplay, current) {
+        if (!englishDisplay || !current) return;
+        cancelTypingRaf();
+        state.typingRafId = window.requestAnimationFrame(() => {
+          englishDisplay.innerHTML = buildTypingMarkup(current.english, state.answer);
+          state.typingRafId = null;
+        });
       }
 
       function stopAutoplay(options = {}) {
@@ -594,39 +640,30 @@
           return;
         }
 
-        const filteredBeforeStart = getFiltered();
-        const currentBeforeStart = getCurrent(filteredBeforeStart);
-        if (currentBeforeStart) {
-          const fullIndex = state.sentences.findIndex((s) => s.id === currentBeforeStart.id);
-          if (fullIndex >= 0) {
-            state.index = fullIndex;
-          }
-        }
-        state.query = "";
-
         state.isAutoplaying = true;
         playAutoplayStep();
         render();
       }
 
-      function checkAnswer(current) {
+      function checkCardTypingAndAdvance(current) {
         if (!current) return;
+        if (state.isComposing) return false;
         const user = normalize(state.answer);
         const target = normalize(current.english);
         if (!user) {
-          state.feedback = "영어 문장을 입력해보세요.";
-          return;
+          state.feedback = "";
+          return false;
         }
-        if (user === target) {
-          state.feedback = "정답입니다. 암기 완료로 표시했습니다.";
-          updateCurrent({ mastered: true }, current);
-          return;
+        if (user !== target) {
+          state.feedback = "";
+          return false;
         }
-        if (target.includes(user) || user.includes(target.slice(0, Math.max(5, Math.floor(target.length * 0.6))))) {
-          state.feedback = "거의 맞았습니다. 어순과 빠진 단어를 확인해보세요.";
-          return;
-        }
-        state.feedback = "아직 달라요. 뜻을 보고 다시 입력해보세요.";
+
+        updateCurrent({ mastered: true }, current);
+        safeSetIndex(state.index + 1);
+        state.shouldSpeakAfterRender = true;
+        state.shouldRefocusCardInput = true;
+        return true;
       }
 
       function resetProgress() {
@@ -638,9 +675,9 @@
       }
 
       function render() {
+        cancelTypingRaf();
         const root = document.getElementById("root");
-        const filtered = getFiltered();
-        const current = getCurrent(filtered);
+        const current = getCurrent();
 
         if (!current) {
           root.innerHTML = `<div class=\"min-h-screen p-6\">학습할 문장이 없습니다.</div>`;
@@ -656,9 +693,9 @@
               <header class="rounded-3xl bg-white p-5 shadow-sm">
                 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p class="text-sm font-semibold text-slate-500">English Core Trainer</p>
+                    <p class="text-sm font-semibold text-slate-500">Master English with 365 Sentences</p>
                     <h1 class="text-2xl font-bold md:text-4xl">🎯 365문장으로 영어 마스터하기</h1>
-                    <p class="mt-2 text-sm text-slate-600">카드 학습, 뜻 가리기, 듣기, 타이핑 퀴즈, 진도 저장을 한 화면에서 연습합니다.</p>
+                    <p class="mt-2 text-sm text-slate-600">듣기, 자동재생, 타이핑 학습, 진도 저장을 한 화면에서 연습합니다.</p>
                   </div>
                   <div class="grid grid-cols-3 gap-2">
                     <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${state.sentences.length}</div></div>
@@ -672,60 +709,38 @@
               <section class="grid gap-4 md:grid-cols-[1fr_320px]">
                 <main class="rounded-3xl bg-white p-5 shadow-sm md:p-8">
                   <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-                    <div class="flex gap-2">
-                      <button data-action="set-mode-card" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.mode === "card" ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">카드</button>
-                      <button data-action="set-mode-quiz" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.mode === "quiz" ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">퀴즈</button>
+                    <div class="flex items-center gap-2">
+                      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">#${current.id}</span>
+                      ${current.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
                     </div>
                     <div class="flex gap-2">
+                      <button data-action="reset-progress" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">진도 초기화</button>
+                      <button data-action="random" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">랜덤</button>
+                      <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 중지" : "자동재생"}</button>
                       <button data-action="speak" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">듣기</button>
-                      <button data-action="toggle-star" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">${current.starred ? "★ 중요" : "☆ 중요"}</button>
                     </div>
                   </div>
 
                   <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-                    <div class="mb-5 flex items-center justify-between gap-3">
-                      <span class="rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm">#${current.id}</span>
-                      ${current.mastered ? '<span class="rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-700 shadow-sm">암기완료</span>' : ""}
-                    </div>
-                    <p class="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${current.english}</p>
+                    <p id="english-display" class="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${buildTypingMarkup(current.english, state.answer)}</p>
 
-                    ${state.mode === "card" ? `
-                      <div class="mt-8 space-y-5">
-                        <button data-action="toggle-korean" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">${state.showKorean ? "뜻 가리기" : "뜻 보기"}</button>
-                        ${state.showKorean ? `<p class=\"rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm\">${current.korean}</p>` : ""}
-                      </div>
-                    ` : `
-                      <div class="mt-8 space-y-4">
-                        <p class="rounded-3xl bg-white p-5 text-xl font-bold text-slate-700 shadow-sm">${current.korean}</p>
-                        <input id="answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="영어 문장을 직접 입력하세요" class="w-full rounded-2xl border border-slate-200 bg-white p-4 text-lg outline-none focus:ring-2 focus:ring-slate-900" />
-                        <div class="flex flex-wrap gap-2">
-                          <button data-action="check-answer" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">정답 확인</button>
-                          <button data-action="fill-answer" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">정답 보기</button>
-                        </div>
-                        ${state.feedback ? `<p class=\"rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm\">${state.feedback}</p>` : ""}
-                      </div>
-                    `}
+                    <div class="mt-8 space-y-5">
+                      <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${current.korean}</p>
+                      <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border border-slate-200 bg-white p-4 text-lg outline-none focus:ring-2 focus:ring-slate-900" />
+                      ${state.feedback ? `<p class=\"rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm\">${state.feedback}</p>` : ""}
+                    </div>
                   </div>
 
                   <div class="mt-5 flex flex-wrap justify-between gap-2">
                     <button data-action="prev" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">이전</button>
-                    <div class="flex gap-2">
-                      <button data-action="random" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">랜덤</button>
-                      <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 중지" : "자동재생"}</button>
-                      <button data-action="toggle-mastered" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${current.mastered ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">암기 표시</button>
-                    </div>
+                    <div class="flex gap-2"></div>
                     <button data-action="next" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">다음</button>
                   </div>
                 </main>
 
                 <aside class="space-y-4">
-                  <div class="rounded-3xl bg-white p-4 shadow-sm">
-                    <input id="query-input" value="${state.query.replaceAll('"', '&quot;')}" placeholder="영어/한글 검색" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-slate-900" />
-                    <p class="mt-3 text-sm text-slate-500">검색 결과 ${filtered.length}개</p>
-                  </div>
-
-                  <div class="max-h-[520px] space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
-                    ${filtered
+                  <div class="h-[500px] space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
+                    ${state.sentences
                       .map((s, i) => `
                         <button data-action="pick" data-pick-index="${i}" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === current.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
                           <div class="flex items-center justify-between gap-2">
@@ -739,33 +754,48 @@
                       .join("")}
                   </div>
 
-                  <button data-action="reset-progress" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">진도 초기화</button>
                 </aside>
               </section>
             </div>
           </div>
         `;
 
-        const answerInput = document.getElementById("answer-input");
-        if (answerInput) {
-          answerInput.addEventListener("input", (e) => {
-            state.answer = e.target.value;
+        const cardAnswerInput = document.getElementById("card-answer-input");
+        const englishDisplay = document.getElementById("english-display");
+        if (cardAnswerInput) {
+          cardAnswerInput.addEventListener("compositionstart", () => {
+            state.isComposing = true;
           });
-          answerInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              checkAnswer(current);
+
+          cardAnswerInput.addEventListener("compositionend", (e) => {
+            state.isComposing = false;
+            state.answer = e.target.value;
+            scheduleTypingHighlightUpdate(englishDisplay, current);
+            const didAdvance = checkCardTypingAndAdvance(current);
+            if (didAdvance) {
               render();
             }
           });
-        }
 
-        const queryInput = document.getElementById("query-input");
-        if (queryInput) {
-          queryInput.addEventListener("input", (e) => {
-            state.query = e.target.value;
-            state.index = 0;
-            render();
+          cardAnswerInput.addEventListener("input", (e) => {
+            state.answer = e.target.value;
+            if (!state.isComposing) {
+              scheduleTypingHighlightUpdate(englishDisplay, current);
+            }
+            const didAdvance = checkCardTypingAndAdvance(current);
+            if (didAdvance) {
+              render();
+            }
           });
+
+          if (state.shouldRefocusCardInput && document.activeElement !== cardAnswerInput) {
+            cardAnswerInput.focus({ preventScroll: true });
+          }
+          if (state.shouldRefocusCardInput) {
+            const end = cardAnswerInput.value.length;
+            cardAnswerInput.setSelectionRange(end, end);
+            state.shouldRefocusCardInput = false;
+          }
         }
 
         const listWrap = document.getElementById("list-wrap");
@@ -783,31 +813,23 @@
             if (state.isAutoplaying && action !== "toggle-autoplay") {
               stopAutoplay();
             }
-            const nextFiltered = getFiltered();
-            const nextCurrent = getCurrent(nextFiltered);
+            const nextCurrent = getCurrent();
 
-            if (action === "set-mode-card") state.mode = "card";
-            if (action === "set-mode-quiz") state.mode = "quiz";
             if (action === "speak") speak(nextCurrent);
-            if (action === "toggle-star") updateCurrent({ starred: !nextCurrent.starred }, nextCurrent);
-            if (action === "toggle-korean") state.showKorean = !state.showKorean;
-            if (action === "check-answer") checkAnswer(nextCurrent);
-            if (action === "fill-answer") state.answer = nextCurrent.english;
-            if (action === "prev") safeSetIndex(state.index - 1, nextFiltered);
-            if (action === "next") safeSetIndex(state.index + 1, nextFiltered);
+            if (action === "prev") safeSetIndex(state.index - 1);
+            if (action === "next") safeSetIndex(state.index + 1);
             if (action === "random") {
-              if (nextFiltered.length >= 2) {
-                let rand = Math.floor(Math.random() * nextFiltered.length);
-                if (rand === state.index) rand = (rand + 1) % nextFiltered.length;
-                safeSetIndex(rand, nextFiltered);
+              if (state.sentences.length >= 2) {
+                let rand = Math.floor(Math.random() * state.sentences.length);
+                if (rand === state.index) rand = (rand + 1) % state.sentences.length;
+                safeSetIndex(rand);
               }
             }
-            if (action === "toggle-mastered") updateCurrent({ mastered: !nextCurrent.mastered }, nextCurrent);
             if (action === "reset-progress") resetProgress();
             if (action === "toggle-autoplay") toggleAutoplay();
             if (action === "pick") {
               const i = Number(el.getAttribute("data-pick-index"));
-              safeSetIndex(i, nextFiltered);
+              safeSetIndex(i);
             }
 
             if (action === "prev" || action === "next" || action === "random" || action === "pick") {
