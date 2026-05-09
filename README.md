@@ -74,13 +74,17 @@
 
 ## 실행 방법
 
-가장 간단한 방법은 `index.html`을 브라우저로 여는 것입니다.
+현재 이 웹앱은 GitHub Pages로 배포되어 있어, 아래 주소에서 바로 사용할 수 있습니다.
 
-### 옵션 A) 파일 직접 열기
-1. 프로젝트 폴더에서 `index.html` 더블클릭
-2. 브라우저에서 바로 실행
+- 배포 주소: `https://lifeiz0415.github.io/english_sentence`
 
-### 옵션 B) 로컬 서버 실행 (권장)
+원하면 로컬에서도 실행할 수 있습니다.
+
+### 옵션 A) 배포 페이지 바로 접속 (권장)
+1. 브라우저에서 `https://lifeiz0415.github.io/english_sentence` 접속
+2. 바로 학습 시작
+
+### 옵션 B) 로컬 서버 실행
 ```bash
 python3 -m http.server 4173
 ```
