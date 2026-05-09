@@ -3,7 +3,6 @@ let DEFAULT_LINES = [];
 function normalizeEnglishSentence(text) {
   return String(text || "")
     .replaceAll("’", "'")
-    .replaceAll(".", "")
     .replace(/\bI'm\b/g, "I am")
     .trim();
 }
@@ -16,7 +15,7 @@ function parseLines(lines) {
       return {
         id: index + 1,
         english: normalizeEnglishSentence(parts[0]),
-        korean: (parts[1] || "").replaceAll(".", "").trim(),
+        korean: String(parts[1] || "").trim(),
         mastered: false,
         starred: false,
       };
@@ -31,7 +30,7 @@ function stripPeriodsFromSentences(items) {
     .map((item, index) => ({
       id: Number(item?.id) || index + 1,
       english: normalizeEnglishSentence(item?.english),
-      korean: String(item?.korean || "").replaceAll(".", "").trim(),
+      korean: String(item?.korean || "").trim(),
       mastered: Boolean(item?.mastered),
       starred: Boolean(item?.starred),
     }))
@@ -117,8 +116,8 @@ function buildPronunciationMarkup(sentence) {
 function runSelfTests() {
   const parsed = parseLines(["Hello. — 안녕.", "I agree. - 동의해."]);
   console.assert(parsed.length === 2, "parseLines should parse both dash styles");
-  console.assert(parsed[0].english === "Hello", "parseLines should remove periods from English text");
-  console.assert(parsed[1].korean === "동의해", "parseLines should remove periods from Korean text");
+  console.assert(parsed[0].english === "Hello.", "parseLines should preserve periods in English text");
+  console.assert(parsed[1].korean === "동의해.", "parseLines should preserve periods in Korean text");
   console.assert(normalize("I don't THINK so!") === "i dont think so", "normalize should clean punctuation");
   console.assert(parseLines(["Broken line"]).length === 0, "parseLines should ignore invalid lines");
   console.assert(parseLines(DEFAULT_LINES).length === DEFAULT_LINES.length, "all default lines should parse correctly");
@@ -140,26 +139,54 @@ const state = {
   shouldRefocusCardInput: false,
   isComposing: false,
   typingRafId: null,
-  isRandomOn: false,
+  isRandomOn: true,
   isListenOn: true,
   isAutoplaying: false,
   autoplayTimerId: null,
   speechFallbackTimerId: null,
 };
 
+function mergeSavedProgress(defaultSentences, savedSentences) {
+  if (!Array.isArray(savedSentences)) return defaultSentences;
+
+  const savedById = new Map(
+    savedSentences.map((item, index) => {
+      const normalized = {
+        id: Number(item?.id) || index + 1,
+        mastered: Boolean(item?.mastered),
+        starred: Boolean(item?.starred),
+      };
+      return [normalized.id, normalized];
+    }),
+  );
+
+  return defaultSentences.map((sentence) => {
+    const saved = savedById.get(sentence.id);
+    if (!saved) return sentence;
+    return {
+      ...sentence,
+      mastered: saved.mastered,
+      starred: saved.starred,
+    };
+  });
+}
+
 function loadSentences() {
+  const defaultSentences = parseLines(DEFAULT_LINES);
+
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length >= DEFAULT_LINES.length) {
-        return stripPeriodsFromSentences(parsed);
+        return mergeSavedProgress(defaultSentences, parsed);
       }
     }
   } catch (error) {
     console.warn("Saved data could not be loaded", error);
   }
-  return parseLines(DEFAULT_LINES);
+
+  return defaultSentences;
 }
 
 async function loadDataFile() {

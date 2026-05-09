@@ -23,6 +23,7 @@
 ### 문장 데이터 계약
 - `data.json`은 최상위에 `sentences`(문자열 배열), `pronunciationMap`(객체) 키를 가져야 합니다.
 - `sentences`의 각 항목은 `English — Korean`(em dash) 또는 `English - Korean`(hyphen) 형식의 이중언어 문자열이어야 합니다.
+- `sentences`의 평서문은 영어/한글 뜻 모두 문장 끝에 마침표(`.`)를 유지하고, 의문문은 물음표(`?`)를 유지해야 합니다.
 - `DEFAULT_LINES`는 런타임 시작 시 `data.json.sentences`로 채워집니다.
 - `PRONUNCIATION_MAP`은 런타임 시작 시 `data.json.pronunciationMap`으로 채워집니다.
 - `parseLines(lines)`는 다음을 만족해야 합니다.
@@ -41,8 +42,9 @@
 ### 로컬 저장 계약
 - LocalStorage 키는 `const-english-sentences-v4`를 유지해야 합니다.
 - 로드 시:
-  - 저장 배열이 존재하고 길이가 `DEFAULT_LINES.length` 이상이면 저장 데이터를 사용
-  - 아니면 기본 문장 파싱 결과로 초기화
+  - `data.json`에서 최신 기본 문장 본문을 먼저 파싱합니다.
+  - 저장 배열이 존재하고 길이가 `DEFAULT_LINES.length` 이상이면 같은 `id` 기준으로 `mastered`, `starred` 진도만 병합합니다.
+  - 아니면 기본 문장 파싱 결과로 초기화합니다.
 - 문장 상태(`mastered`, `starred`, reset) 변경 시 전체 `sentences` 배열을 저장해야 합니다.
 
 ### 내비게이션 및 상태 동작
@@ -66,7 +68,7 @@
 - 버튼 지원: 영어 문장 표시/숨김 토글, previous/next, 랜덤 on/off 토글, 자동재생 on/off 토글, 듣기 on/off 토글.
 - 헤더 통계 카드는 `전체 / 암기 / 진도 / 진도초기화` 4개 카드 형태로 표시됩니다.
 - 암기완료(`mastered=true`) 문장은 학습 대상에서 제외되어 다시 나오지 않습니다. 단, 전체 문장을 모두 암기하면 전체 목록을 다시 순환합니다.
-- 앱 시작 기본값: 랜덤 off, 듣기 on.
+- 앱 시작 기본값: 랜덤 on, 듣기 on.
 - 사이드바는 전체 문장 인덱스 선택을 지원하며, 암기완료 문장도 `암기완료` 표기로 표시합니다.
 - 사이드바 문장 리스트 높이는 전체 레이아웃 높이(`h-full`)를 사용하지 않고, 좌측 메인 카드의 실제 렌더 높이를 측정한 값으로 동기화합니다.
 - 표시 문장이 바뀌면(앱 최초 랜덤 문장 표시 포함) 사이드바가 현재 문장을 최상단으로 자동 스크롤합니다.
@@ -78,6 +80,7 @@
 - `runSelfTests()`는 `data.json` 로드 완료 후 실행되며 다음을 검증해야 합니다.
   - 두 구분자 파싱
   - 정규화의 문장부호 처리
+  - 파싱 시 문장 끝 마침표/물음표 보존
   - 잘못된 라인 제거
   - 기본 문장 전체 파싱 성공
   - `DEFAULT_LINES.length === 365`
