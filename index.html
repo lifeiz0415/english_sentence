@@ -496,7 +496,10 @@
 
       state.sentences = loadSentences();
       if (state.sentences.length > 0) {
-        state.index = Math.floor(Math.random() * state.sentences.length);
+        const unmastered = state.sentences.filter((s) => !s.mastered);
+        const initialPool = unmastered.length > 0 ? unmastered : state.sentences;
+        const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
+        state.index = state.sentences.findIndex((s) => s.id === initial.id);
       }
 
       function persist() {
@@ -507,16 +510,34 @@
         }
       }
 
-      function getCurrent() {
-        return state.sentences[state.index] || state.sentences[0] || null;
+      function getActiveSentences() {
+        const unmastered = state.sentences.filter((s) => !s.mastered);
+        return unmastered.length > 0 ? unmastered : state.sentences;
       }
 
-      function safeSetIndex(next) {
-        if (state.sentences.length === 0) {
+      function getCurrent() {
+        const active = getActiveSentences();
+        if (active.length === 0) return null;
+        const currentById = active.find((s) => s.id === state.index);
+        return currentById || active[0] || null;
+      }
+
+      function safeSetIndex(nextIdOrOffset, useOffset = true) {
+        const active = getActiveSentences();
+        if (active.length === 0) {
           state.index = 0;
           return;
         }
-        state.index = (next + state.sentences.length) % state.sentences.length;
+
+        if (useOffset) {
+          const currentPos = Math.max(0, active.findIndex((s) => s.id === state.index));
+          const nextPos = (currentPos + nextIdOrOffset + active.length) % active.length;
+          state.index = active[nextPos].id;
+        } else {
+          const exact = active.find((s) => s.id === nextIdOrOffset);
+          state.index = exact ? exact.id : active[0].id;
+        }
+
         state.answer = "";
         state.feedback = "";
       }
@@ -568,11 +589,14 @@
       }
 
       function getAdvanceIndex() {
-        if (state.sentences.length < 2) return state.index;
-        if (!state.isRandomOn) return state.index + 1;
-        let rand = Math.floor(Math.random() * state.sentences.length);
-        if (rand === state.index) rand = (rand + 1) % state.sentences.length;
-        return rand;
+        const active = getActiveSentences();
+        if (active.length < 2) return 1;
+        if (!state.isRandomOn) return 1;
+
+        const currentPos = Math.max(0, active.findIndex((s) => s.id === state.index));
+        let randPos = Math.floor(Math.random() * active.length);
+        if (randPos === currentPos) randPos = (randPos + 1) % active.length;
+        return active[randPos].id;
       }
 
       function toggleListen() {
@@ -631,9 +655,8 @@
 
       function playAutoplayStep() {
         if (!state.isAutoplaying) return;
-        const fullList = state.sentences;
-        const current = fullList[state.index] || null;
-        if (!current || fullList.length === 0) {
+        const current = getCurrent();
+        if (!current || getActiveSentences().length === 0) {
           stopAutoplay();
           render();
           return;
@@ -644,20 +667,24 @@
           clearAutoplayTimer();
           state.autoplayTimerId = window.setTimeout(() => {
             if (!state.isAutoplaying) return;
-            const fullListNow = state.sentences;
-            if (fullListNow.length === 0) {
+            const activeNow = getActiveSentences();
+            if (activeNow.length === 0) {
               stopAutoplay();
               render();
               return;
             }
 
-            if (!state.isRandomOn && state.index >= fullListNow.length - 1) {
+            if (!state.isRandomOn && activeNow.findIndex((s) => s.id === state.index) >= activeNow.length - 1) {
               stopAutoplay({ keepSpeech: true });
               render();
               return;
             }
 
-            safeSetIndex(getAdvanceIndex());
+            if (state.isRandomOn) {
+              safeSetIndex(getAdvanceIndex(), false);
+            } else {
+              safeSetIndex(1, true);
+            }
             render();
             playAutoplayStep();
           }, 100);
@@ -698,7 +725,11 @@
         }
 
         updateCurrent({ mastered: true }, current);
-        safeSetIndex(getAdvanceIndex());
+        if (state.isRandomOn) {
+          safeSetIndex(getAdvanceIndex(), false);
+        } else {
+          safeSetIndex(1, true);
+        }
         state.shouldSpeakAfterRender = true;
         state.shouldRefocusCardInput = true;
         return true;
@@ -734,11 +765,12 @@
                     <p class="text-sm font-semibold text-slate-500">Master English with 365 Sentences</p>
                     <h1 class="text-2xl font-bold md:text-4xl">🎯 365문장으로 영어 마스터하기</h1>
                   </div>
-                  <div class="grid grid-cols-3 gap-2">
-                    <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${state.sentences.length}</div></div>
-                    <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
-                    <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">진도</div><div class="text-xl font-extrabold">${progress}%</div></div>
-                  </div>
+                    <div class="grid grid-cols-4 gap-2">
+                      <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${state.sentences.length}</div></div>
+                      <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">남은</div><div class="text-xl font-extrabold">${getActiveSentences().length}</div></div>
+                      <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
+                      <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">진도</div><div class="text-xl font-extrabold">${progress}%</div></div>
+                    </div>
                 </div>
                 <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
               </header>
@@ -777,9 +809,9 @@
 
                 <aside class="space-y-4">
                   <div class="h-[500px] space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
-                    ${state.sentences
+                    ${getActiveSentences()
                       .map((s, i) => `
-                        <button data-action="pick" data-pick-index="${i}" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === current.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
+                        <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === current.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
                           <div class="flex items-center justify-between gap-2">
                             <span class="text-xs font-bold">#${s.id}</span>
                             <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 완료" : ""}</span>
@@ -854,13 +886,19 @@
 
             if (action === "toggle-listen") toggleListen();
             if (action === "toggle-random") state.isRandomOn = !state.isRandomOn;
-            if (action === "prev") safeSetIndex(state.index - 1);
-            if (action === "next") safeSetIndex(getAdvanceIndex());
+            if (action === "prev") safeSetIndex(-1, true);
+            if (action === "next") {
+              if (state.isRandomOn) {
+                safeSetIndex(getAdvanceIndex(), false);
+              } else {
+                safeSetIndex(1, true);
+              }
+            }
             if (action === "reset-progress") resetProgress();
             if (action === "toggle-autoplay") toggleAutoplay();
             if (action === "pick") {
-              const i = Number(el.getAttribute("data-pick-index"));
-              safeSetIndex(i);
+              const id = Number(el.getAttribute("data-sentence-id"));
+              safeSetIndex(id, false);
             }
 
             if ((action === "prev" || action === "next" || action === "pick") && state.isListenOn) {
