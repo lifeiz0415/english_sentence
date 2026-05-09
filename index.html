@@ -461,6 +461,8 @@
         shouldRefocusCardInput: false,
         isComposing: false,
         typingRafId: null,
+        isRandomOn: false,
+        isListenOn: true,
         isAutoplaying: false,
         autoplayTimerId: null,
         speechFallbackTimerId: null,
@@ -549,6 +551,21 @@
         }
       }
 
+      function getAdvanceIndex() {
+        if (state.sentences.length < 2) return state.index;
+        if (!state.isRandomOn) return state.index + 1;
+        let rand = Math.floor(Math.random() * state.sentences.length);
+        if (rand === state.index) rand = (rand + 1) % state.sentences.length;
+        return rand;
+      }
+
+      function toggleListen() {
+        state.isListenOn = !state.isListenOn;
+        if (!state.isListenOn && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+      }
+
       function speak(current, options = {}) {
         const { onComplete = null } = options;
         if (!current || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === "undefined") return;
@@ -606,31 +623,35 @@
           return;
         }
 
-        speak(current, {
-          onComplete: () => {
+        const handleStepDone = () => {
+          if (!state.isAutoplaying) return;
+          clearAutoplayTimer();
+          state.autoplayTimerId = window.setTimeout(() => {
             if (!state.isAutoplaying) return;
-            clearAutoplayTimer();
-            state.autoplayTimerId = window.setTimeout(() => {
-              if (!state.isAutoplaying) return;
-              const fullListNow = state.sentences;
-              if (fullListNow.length === 0) {
-                stopAutoplay();
-                render();
-                return;
-              }
-
-              if (state.index >= fullListNow.length - 1) {
-                stopAutoplay({ keepSpeech: true });
-                render();
-                return;
-              }
-
-              safeSetIndex(state.index + 1, fullListNow);
+            const fullListNow = state.sentences;
+            if (fullListNow.length === 0) {
+              stopAutoplay();
               render();
-              playAutoplayStep();
-            }, 100);
-          },
-        });
+              return;
+            }
+
+            if (!state.isRandomOn && state.index >= fullListNow.length - 1) {
+              stopAutoplay({ keepSpeech: true });
+              render();
+              return;
+            }
+
+            safeSetIndex(getAdvanceIndex());
+            render();
+            playAutoplayStep();
+          }, 100);
+        };
+
+        if (state.isListenOn) {
+          speak(current, { onComplete: handleStepDone });
+        } else {
+          handleStepDone();
+        }
       }
 
       function toggleAutoplay() {
@@ -640,6 +661,7 @@
           return;
         }
 
+        state.isListenOn = true;
         state.isAutoplaying = true;
         playAutoplayStep();
         render();
@@ -660,7 +682,7 @@
         }
 
         updateCurrent({ mastered: true }, current);
-        safeSetIndex(state.index + 1);
+        safeSetIndex(getAdvanceIndex());
         state.shouldSpeakAfterRender = true;
         state.shouldRefocusCardInput = true;
         return true;
@@ -715,9 +737,9 @@
                     </div>
                     <div class="flex gap-2">
                       <button data-action="reset-progress" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">진도 초기화</button>
-                      <button data-action="random" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">랜덤</button>
-                      <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 중지" : "자동재생"}</button>
-                      <button data-action="speak" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">듣기</button>
+                      <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
+                      <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>
+                      <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
                     </div>
                   </div>
 
@@ -815,16 +837,10 @@
             }
             const nextCurrent = getCurrent();
 
-            if (action === "speak") speak(nextCurrent);
+            if (action === "toggle-listen") toggleListen();
+            if (action === "toggle-random") state.isRandomOn = !state.isRandomOn;
             if (action === "prev") safeSetIndex(state.index - 1);
-            if (action === "next") safeSetIndex(state.index + 1);
-            if (action === "random") {
-              if (state.sentences.length >= 2) {
-                let rand = Math.floor(Math.random() * state.sentences.length);
-                if (rand === state.index) rand = (rand + 1) % state.sentences.length;
-                safeSetIndex(rand);
-              }
-            }
+            if (action === "next") safeSetIndex(getAdvanceIndex());
             if (action === "reset-progress") resetProgress();
             if (action === "toggle-autoplay") toggleAutoplay();
             if (action === "pick") {
@@ -832,7 +848,7 @@
               safeSetIndex(i);
             }
 
-            if (action === "prev" || action === "next" || action === "random" || action === "pick") {
+            if ((action === "prev" || action === "next" || action === "pick") && state.isListenOn) {
               state.shouldSpeakAfterRender = true;
             }
 
@@ -842,12 +858,12 @@
 
         if (!state.hasAutoSpokenOnFirstCard) {
           state.hasAutoSpokenOnFirstCard = true;
-          speak(current);
+          if (state.isListenOn) speak(current);
         }
 
         if (state.shouldSpeakAfterRender) {
           state.shouldSpeakAfterRender = false;
-          speak(current);
+          if (state.isListenOn) speak(current);
         }
       }
 
