@@ -414,7 +414,7 @@
 
       runSelfTests();
 
-      const STORAGE_KEY = "const-english-sentences-v5-html";
+      const STORAGE_KEY = "const-english-sentences-v4";
       const state = {
         sentences: [],
         index: 0,
@@ -451,15 +451,6 @@
         } catch (error) {
           console.warn("Progress could not be saved", error);
         }
-      }
-
-      function escapeHtml(value) {
-        return String(value)
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#039;");
       }
 
       function getFiltered() {
@@ -536,11 +527,18 @@
           koreanUtterance.rate = 0.9;
 
           if (typeof onComplete === "function") {
-            koreanUtterance.onend = finish;
-            koreanUtterance.onerror = finish;
+            koreanUtterance.onend = () => {
+              finish();
+            };
+            koreanUtterance.onerror = () => {
+              finish();
+            };
+
             const combinedText = `${current.english} ${current.korean}`;
             const estimatedMs = Math.max(2000, Math.min(12000, combinedText.length * 140));
-            state.speechFallbackTimerId = window.setTimeout(finish, estimatedMs);
+            state.speechFallbackTimerId = window.setTimeout(() => {
+              finish();
+            }, estimatedMs);
           }
 
           window.speechSynthesis.speak(englishUtterance);
@@ -600,9 +598,12 @@
         const currentBeforeStart = getCurrent(filteredBeforeStart);
         if (currentBeforeStart) {
           const fullIndex = state.sentences.findIndex((s) => s.id === currentBeforeStart.id);
-          if (fullIndex >= 0) state.index = fullIndex;
+          if (fullIndex >= 0) {
+            state.index = fullIndex;
+          }
         }
         state.query = "";
+
         state.isAutoplaying = true;
         playAutoplayStep();
         render();
@@ -642,7 +643,7 @@
         const current = getCurrent(filtered);
 
         if (!current) {
-          root.innerHTML = `<div class="min-h-screen p-6">학습할 문장이 없습니다.</div>`;
+          root.innerHTML = `<div class=\"min-h-screen p-6\">학습할 문장이 없습니다.</div>`;
           return;
         }
 
@@ -686,22 +687,22 @@
                       <span class="rounded-full bg-white px-4 py-2 text-sm font-bold shadow-sm">#${current.id}</span>
                       ${current.mastered ? '<span class="rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-700 shadow-sm">암기완료</span>' : ""}
                     </div>
-                    <p class="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${escapeHtml(current.english)}</p>
+                    <p class="text-3xl font-extrabold leading-tight tracking-tight md:text-5xl">${current.english}</p>
 
                     ${state.mode === "card" ? `
                       <div class="mt-8 space-y-5">
                         <button data-action="toggle-korean" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">${state.showKorean ? "뜻 가리기" : "뜻 보기"}</button>
-                        ${state.showKorean ? `<p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${escapeHtml(current.korean)}</p>` : ""}
+                        ${state.showKorean ? `<p class=\"rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm\">${current.korean}</p>` : ""}
                       </div>
                     ` : `
                       <div class="mt-8 space-y-4">
-                        <p class="rounded-3xl bg-white p-5 text-xl font-bold text-slate-700 shadow-sm">${escapeHtml(current.korean)}</p>
-                        <input id="answer-input" value="${escapeHtml(state.answer)}" placeholder="영어 문장을 직접 입력하세요" class="w-full rounded-2xl border border-slate-200 bg-white p-4 text-lg outline-none focus:ring-2 focus:ring-slate-900" />
+                        <p class="rounded-3xl bg-white p-5 text-xl font-bold text-slate-700 shadow-sm">${current.korean}</p>
+                        <input id="answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="영어 문장을 직접 입력하세요" class="w-full rounded-2xl border border-slate-200 bg-white p-4 text-lg outline-none focus:ring-2 focus:ring-slate-900" />
                         <div class="flex flex-wrap gap-2">
                           <button data-action="check-answer" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">정답 확인</button>
                           <button data-action="fill-answer" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">정답 보기</button>
                         </div>
-                        ${state.feedback ? `<p class="rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${escapeHtml(state.feedback)}</p>` : ""}
+                        ${state.feedback ? `<p class=\"rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm\">${state.feedback}</p>` : ""}
                       </div>
                     `}
                   </div>
@@ -719,21 +720,23 @@
 
                 <aside class="space-y-4">
                   <div class="rounded-3xl bg-white p-4 shadow-sm">
-                    <input id="query-input" value="${escapeHtml(state.query)}" placeholder="영어/한글 검색" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-slate-900" />
+                    <input id="query-input" value="${state.query.replaceAll('"', '&quot;')}" placeholder="영어/한글 검색" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-slate-900" />
                     <p class="mt-3 text-sm text-slate-500">검색 결과 ${filtered.length}개</p>
                   </div>
 
                   <div class="max-h-[520px] space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
-                    ${filtered.map((s, i) => `
+                    ${filtered
+                      .map((s, i) => `
                         <button data-action="pick" data-pick-index="${i}" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === current.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
                           <div class="flex items-center justify-between gap-2">
                             <span class="text-xs font-bold">#${s.id}</span>
                             <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 완료" : ""}</span>
                           </div>
-                          <p class="mt-1 text-sm font-semibold">${escapeHtml(s.english)}</p>
-                          <p class="mt-1 text-xs ${s.id === current.id ? "text-slate-200" : "text-slate-500"}">${escapeHtml(s.korean)}</p>
+                          <p class="mt-1 text-sm font-semibold">${s.english}</p>
+                          <p class="mt-1 text-xs ${s.id === current.id ? "text-slate-200" : "text-slate-500"}">${s.korean}</p>
                         </button>
-                      `).join("")}
+                      `)
+                      .join("")}
                   </div>
 
                   <button data-action="reset-progress" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">진도 초기화</button>
@@ -777,7 +780,9 @@
         root.querySelectorAll("[data-action]").forEach((el) => {
           el.addEventListener("click", () => {
             const action = el.getAttribute("data-action");
-            if (state.isAutoplaying && action !== "toggle-autoplay") stopAutoplay();
+            if (state.isAutoplaying && action !== "toggle-autoplay") {
+              stopAutoplay();
+            }
             const nextFiltered = getFiltered();
             const nextCurrent = getCurrent(nextFiltered);
 
@@ -805,7 +810,10 @@
               safeSetIndex(i, nextFiltered);
             }
 
-            if (action === "prev" || action === "next" || action === "random" || action === "pick") state.shouldSpeakAfterRender = true;
+            if (action === "prev" || action === "next" || action === "random" || action === "pick") {
+              state.shouldSpeakAfterRender = true;
+            }
+
             render();
           });
         });
