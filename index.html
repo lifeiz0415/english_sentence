@@ -1240,7 +1240,6 @@
         index: 0,
         answer: "",
         feedback: "",
-        lastSyncedMainHeight: 0,
         lastScrolledSentenceId: null,
         hasAutoSpokenOnFirstCard: false,
         shouldSpeakAfterRender: false,
@@ -1585,7 +1584,7 @@
                 <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
               </header>
 
-              <section class="grid items-stretch gap-4 md:grid-cols-[1fr_320px]">
+              <section class="grid items-start gap-4 md:grid-cols-[1fr_320px]">
                 <main id="main-panel" class="rounded-3xl bg-white p-5 shadow-sm md:p-8">
                   <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                     <div class="flex items-center gap-2">
@@ -1688,14 +1687,14 @@
           const mainPanel = document.getElementById("main-panel");
           if (!listWrap || !mainPanel) return;
           const mainVisibleHeight = mainPanel.offsetHeight;
-          if (mainVisibleHeight > 0 && mainVisibleHeight !== state.lastSyncedMainHeight) {
-            listWrap.style.height = `${mainVisibleHeight}px`;
-            state.lastSyncedMainHeight = mainVisibleHeight;
+          const targetHeight = `${mainVisibleHeight}px`;
+          if (mainVisibleHeight > 0 && listWrap.style.height !== targetHeight) {
+            listWrap.style.height = targetHeight;
           }
         };
 
-        const scrollCurrentItemToTop = () => {
-          if (state.lastScrolledSentenceId === current.id) return;
+        const scrollCurrentItemToTop = (force = false) => {
+          if (!force && state.lastScrolledSentenceId === current.id) return;
           const listWrap = document.getElementById("list-wrap");
           if (!listWrap) return;
           const activeItem = listWrap.querySelector(`[data-sentence-id="${current.id}"]`);
@@ -1709,7 +1708,7 @@
         scrollCurrentItemToTop();
         window.requestAnimationFrame(() => {
           syncListHeightToMainPanel();
-          scrollCurrentItemToTop();
+          scrollCurrentItemToTop(true);
         });
 
         if (!state.hasAutoSpokenOnFirstCard) {
