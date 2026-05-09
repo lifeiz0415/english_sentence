@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## 목적
-이 문서는 현재 코드베이스(`index.html`)와 **정확히 일치하는 규칙만** 정의합니다. 구현 지시를 완료할 때마다 이 문서를 실제 코드와 동기화해야 합니다.
+이 문서는 현재 코드베이스(`index.html`, `data.json`)와 **정확히 일치하는 규칙만** 정의합니다. 구현 지시를 완료할 때마다 이 문서를 실제 코드와 동기화해야 합니다.
 
 ## 동기화 규칙 (사용자 요구사항)
 - 구현 지시를 완료한 뒤, 동작/데이터 형태/저장 키/UX 흐름이 바뀌었다면 이 파일을 반드시 업데이트합니다.
@@ -15,12 +15,16 @@
 ## 현재 앱 계약 (코드와 반드시 일치해야 함)
 
 ### 스택 및 진입점
-- 앱은 `index.html` 단일 파일(인라인 HTML/CSS/JS) 클라이언트 앱입니다.
+- 앱은 `index.html` + 같은 레벨의 `data.json`으로 구성된 정적 클라이언트 앱입니다.
 - UI 스타일링은 `index.html`에서 CDN으로 로드한 Tailwind 유틸리티 클래스를 사용합니다.
 - 런타임 로직, 상태 관리, 문장 데이터, 렌더링은 React 런타임 없이 인라인 `<script>`에서 구현됩니다.
+- 앱 시작 시 `bootstrap()`이 `./data.json`을 fetch하여 문장/발음 데이터를 로드한 뒤 렌더링을 시작합니다.
 
 ### 문장 데이터 계약
-- `DEFAULT_LINES`는 `English — Korean`(em dash) 또는 `English - Korean`(hyphen) 형식의 이중언어 문자열 1차원 배열입니다.
+- `data.json`은 최상위에 `sentences`(문자열 배열), `pronunciationMap`(객체) 키를 가져야 합니다.
+- `sentences`의 각 항목은 `English — Korean`(em dash) 또는 `English - Korean`(hyphen) 형식의 이중언어 문자열이어야 합니다.
+- `DEFAULT_LINES`는 런타임 시작 시 `data.json.sentences`로 채워집니다.
+- `PRONUNCIATION_MAP`은 런타임 시작 시 `data.json.pronunciationMap`으로 채워집니다.
 - `parseLines(lines)`는 다음을 만족해야 합니다.
   - 두 구분자 형식을 모두 지원
   - 각 항목을 `{ id, english, korean, mastered, starred }` 형태로 매핑
@@ -70,7 +74,7 @@
 - 듣기 off일 때는 자동/수동 음성 재생을 하지 않습니다.
 
 ### 자체 테스트 계약
-- `runSelfTests()`는 시작 시 실행되며 다음을 검증해야 합니다.
+- `runSelfTests()`는 `data.json` 로드 완료 후 실행되며 다음을 검증해야 합니다.
   - 두 구분자 파싱
   - 정규화의 문장부호 처리
   - 잘못된 라인 제거
