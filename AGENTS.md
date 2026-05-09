@@ -1,72 +1,73 @@
 # AGENTS.md
 
-## Purpose
-This document defines **only the rules that match the current codebase** (`index.html`) and must be kept in sync after each completed implementation instruction.
+## 목적
+이 문서는 현재 코드베이스(`index.html`)와 **정확히 일치하는 규칙만** 정의합니다. 구현 지시를 완료할 때마다 이 문서를 실제 코드와 동기화해야 합니다.
 
-## Sync Rule (User Requirement)
-- After completing any implementation instruction, update this file if behavior, data shape, storage key, or UX flow changed.
-- If a rule is no longer reflected in code, remove it immediately.
-- Never keep speculative or future-only rules.
+## 동기화 규칙 (사용자 요구사항)
+- 구현 지시를 완료한 뒤, 동작/데이터 형태/저장 키/UX 흐름이 바뀌었다면 이 파일을 반드시 업데이트합니다.
+- 코드에 더 이상 반영되지 않는 규칙은 즉시 삭제합니다.
+- 추측성 규칙이나 미래 계획만 있는 규칙은 절대 남기지 않습니다.
+- AGENTS.md를 수정한 경우, 같은 작업 사이클에서 누락 없이 즉시 반영하고 변경 사실을 최종 보고에 명시합니다.
+- AGENTS.md의 본문/규칙 업데이트는 앞으로 한글로 유지합니다.
 
-## Current App Contract (must match code)
+## 현재 앱 계약 (코드와 반드시 일치해야 함)
 
-### Stack and entry
-- App is a single-file client app in `index.html` (inline HTML/CSS/JS).
-- UI styling uses Tailwind utility classes loaded via CDN in `index.html`.
-- Runtime logic, state management, sentence data, and rendering are implemented in inline `<script>` without React runtime.
+### 스택 및 진입점
+- 앱은 `index.html` 단일 파일(인라인 HTML/CSS/JS) 클라이언트 앱입니다.
+- UI 스타일링은 `index.html`에서 CDN으로 로드한 Tailwind 유틸리티 클래스를 사용합니다.
+- 런타임 로직, 상태 관리, 문장 데이터, 렌더링은 React 런타임 없이 인라인 `<script>`에서 구현됩니다.
 
-### Sentence data contract
-- `DEFAULT_LINES` is a flat array of bilingual strings in format `English — Korean` (em dash) or `English - Korean` (hyphen).
-- `parseLines(lines)` must:
-  - support both separators,
-  - map each parsed line to `{ id, english, korean, mastered, starred }`,
-  - drop invalid lines with missing side(s).
+### 문장 데이터 계약
+- `DEFAULT_LINES`는 `English — Korean`(em dash) 또는 `English - Korean`(hyphen) 형식의 이중언어 문자열 1차원 배열입니다.
+- `parseLines(lines)`는 다음을 만족해야 합니다.
+  - 두 구분자 형식을 모두 지원
+  - 각 항목을 `{ id, english, korean, mastered, starred }` 형태로 매핑
+  - 한쪽 값이라도 비어 있는 잘못된 라인은 제거
 
-### Normalization and search/quiz behavior
-- `normalize(text)` lowercases and removes punctuation except Korean syllables, numbers, and whitespace.
-- Search must match against combined `english + korean` normalized text.
-- Quiz grading logic:
-  - empty input: prompt user to type answer,
-  - exact normalized match: mark as mastered,
-  - near match (substring/partial threshold): return near-correct feedback,
-  - otherwise return incorrect feedback.
+### 정규화 및 검색/퀴즈 동작
+- `normalize(text)`는 소문자화하고, 한글 음절/숫자/공백을 제외한 문장부호를 제거합니다.
+- 검색은 `english + korean`를 합친 정규화 텍스트 기준으로 매칭되어야 합니다.
+- 퀴즈 채점 로직은 다음을 만족해야 합니다.
+  - 빈 입력: 답안을 입력하라는 안내 표시
+  - 정규화 완전 일치: 정답 처리 + 암기 완료 표시
+  - 유사 정답(부분 일치/임계치): 거의 맞음 피드백
+  - 그 외: 오답 피드백
 
-### Local persistence contract
-- LocalStorage key must remain: `const-english-sentences-v4`.
-- On load:
-  - if saved array exists and its length is at least `DEFAULT_LINES.length`, use saved data,
-  - otherwise initialize from parsed defaults.
-- On sentence state change (`mastered`, `starred`, reset), persist full `sentences` array.
+### 로컬 저장 계약
+- LocalStorage 키는 `const-english-sentences-v4`를 유지해야 합니다.
+- 로드 시:
+  - 저장 배열이 존재하고 길이가 `DEFAULT_LINES.length` 이상이면 저장 데이터를 사용
+  - 아니면 기본 문장 파싱 결과로 초기화
+- 문장 상태(`mastered`, `starred`, reset) 변경 시 전체 `sentences` 배열을 저장해야 합니다.
 
-### Navigation and state behavior
-- `safeSetIndex(next)` wraps index within filtered length and resets `answer`/`feedback`.
-- When filtered result is empty, index resets to 0.
-- Random selection must avoid selecting current index when possible.
-- `resetProgress()` clears both `mastered` and `starred`, and resets index/input/feedback.
+### 내비게이션 및 상태 동작
+- `safeSetIndex(next)`는 필터 길이 기준으로 인덱스를 순환(wrap)시키고 `answer`/`feedback`을 초기화합니다.
+- 필터 결과가 비어 있으면 인덱스를 0으로 초기화합니다.
+- 랜덤 선택은 가능하면 현재 인덱스를 다시 선택하지 않아야 합니다.
+- `resetProgress()`는 `mastered`, `starred`를 모두 초기화하고 인덱스/입력/피드백도 함께 초기화해야 합니다.
 
-### UI behavior contract
-- Modes: `card` and `quiz`.
-- On initial app load, the first displayed sentence is auto-played once via speech synthesis.
-- After sentence navigation actions (`previous`, `next`, `random`, sidebar pick), the newly displayed sentence is auto-played via speech synthesis.
-- Speech playback reads English first, then Korean meaning for the same sentence.
-- Card mode: toggle Korean meaning visibility.
-- Quiz mode: show Korean prompt, allow Enter key submit.
-- Buttons support: previous/next/random, listen (speech synthesis), star toggle, mastered toggle, progress reset.
-- Buttons support: previous/next/random, listen (speech synthesis), autoplay toggle, star toggle, mastered toggle, progress reset.
-- Sidebar supports query filtering and selecting sentence by filtered index.
-- Sidebar auto-scrolls to keep the currently displayed sentence visible near the top when the displayed sentence changes.
-- Autoplay behavior: reads English then Korean for current sentence, waits 0.1 seconds, then advances to next sentence and repeats through the full sentence list until the last (365th) sentence, then stops automatically.
+### UI 동작 계약
+- 모드: `card`와 `quiz`.
+- 앱 최초 로드 시 첫 문장을 음성 합성으로 1회 자동 재생합니다.
+- 문장 이동(`previous`, `next`, `random`, 사이드바 선택) 후 새 문장을 음성 합성으로 자동 재생합니다.
+- 음성 재생은 같은 문장에 대해 영어를 먼저 읽고, 그 다음 한글 뜻을 읽습니다.
+- 카드 모드: 한글 뜻 표시/숨김 토글.
+- 퀴즈 모드: 한글 뜻 제시 + Enter 키 제출.
+- 버튼 지원: previous/next/random, 듣기(음성), autoplay 토글, 중요(★) 토글, 암기 토글, 진도 초기화.
+- 사이드바는 검색 필터링과 필터 인덱스 선택을 지원합니다.
+- 표시 문장이 바뀌면 사이드바가 현재 문장을 상단 근처로 자동 스크롤합니다.
+- 자동재생 동작: 현재 문장을 영어→한글 순으로 읽고 0.1초 대기 후 다음 문장으로 이동, 전체 목록의 마지막(365번째) 문장까지 반복한 뒤 자동 종료합니다.
 
-### Self-test contract
-- `runSelfTests()` is executed at startup and validates:
-  - parsing both separators,
-  - normalize punctuation behavior,
-  - invalid line rejection,
-  - all defaults parse,
-  - `DEFAULT_LINES.length === 365`.
+### 자체 테스트 계약
+- `runSelfTests()`는 시작 시 실행되며 다음을 검증해야 합니다.
+  - 두 구분자 파싱
+  - 정규화의 문장부호 처리
+  - 잘못된 라인 제거
+  - 기본 문장 전체 파싱 성공
+  - `DEFAULT_LINES.length === 365`
 
-## Update Checklist (use whenever work is completed)
-1. Compare changed code with each section above.
-2. Update changed rules.
-3. Remove stale rules not represented in code.
-4. Keep wording concrete and testable.
+## 업데이트 체크리스트 (작업 완료 시 사용)
+1. 변경된 코드와 위 각 섹션을 비교합니다.
+2. 변경된 규칙을 업데이트합니다.
+3. 코드에 없는 오래된 규칙을 삭제합니다.
+4. 문장을 구체적이고 검증 가능하게 유지합니다.
