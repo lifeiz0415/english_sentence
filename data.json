@@ -1077,5 +1077,1134 @@
     "started": "스타티드",
     "raining": "레이닝",
     "movie": "무비"
-  }
+  },
+  "vocabulary": [
+    {
+      "word": "company",
+      "meaning": "회사",
+      "partOfSpeech": "noun",
+      "related": [
+        "government",
+        "project",
+        "customer"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "students",
+      "meaning": "학생들",
+      "partOfSpeech": "noun",
+      "related": [
+        "teacher",
+        "education",
+        "skills"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "time",
+      "meaning": "시간",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "need",
+      "meaning": "필요하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "new",
+      "meaning": "새로운",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": [
+        "old"
+      ]
+    },
+    {
+      "word": "project",
+      "meaning": "프로젝트",
+      "partOfSpeech": "noun",
+      "related": [
+        "teamwork",
+        "planning",
+        "progress"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "try",
+      "meaning": "시도하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "improve",
+      "meaning": "향상시키다",
+      "partOfSpeech": "verb",
+      "related": [
+        "adapt",
+        "develop",
+        "encourage"
+      ],
+      "opposites": [
+        "decline",
+        "worsen"
+      ]
+    },
+    {
+      "word": "skills",
+      "meaning": "기술, 능력",
+      "partOfSpeech": "noun",
+      "related": [
+        "practice",
+        "confidence",
+        "progress"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "think",
+      "meaning": "생각하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "believe",
+        "consider",
+        "decide"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "communication",
+      "meaning": "의사소통",
+      "partOfSpeech": "noun",
+      "related": [
+        "discussion",
+        "words",
+        "ideas"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "learn",
+      "meaning": "배우다",
+      "partOfSpeech": "verb",
+      "related": [
+        "study",
+        "practice",
+        "improve"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "problem",
+      "meaning": "문제",
+      "partOfSpeech": "noun",
+      "related": [
+        "issue",
+        "solution",
+        "effort"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "always",
+      "meaning": "항상",
+      "partOfSpeech": "adverb",
+      "related": [
+        "completely",
+        "deeply",
+        "critically"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "english",
+      "meaning": "영어",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "keep",
+      "meaning": "유지하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "through",
+      "meaning": "통해",
+      "partOfSpeech": "adverb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "better",
+      "meaning": "더 나은",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "people",
+      "meaning": "사람들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "stay",
+      "meaning": "머무르다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "confident",
+      "meaning": "자신감 있는",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": [
+        "uncertain"
+      ]
+    },
+    {
+      "word": "every",
+      "meaning": "모든",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "respect",
+      "meaning": "존중하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": [
+        "ignore"
+      ]
+    },
+    {
+      "word": "teacher",
+      "meaning": "선생님",
+      "partOfSpeech": "noun",
+      "related": [
+        "students",
+        "education",
+        "lecture"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "technology",
+      "meaning": "기술",
+      "partOfSpeech": "noun",
+      "related": [
+        "innovation",
+        "internet",
+        "information"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "become",
+      "meaning": "~이 되다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "goals",
+      "meaning": "목표들",
+      "partOfSpeech": "noun",
+      "related": [
+        "progress",
+        "future",
+        "success"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "government",
+      "meaning": "정부",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "honesty",
+      "meaning": "정직",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "lecture",
+      "meaning": "강의",
+      "partOfSpeech": "noun",
+      "related": [
+        "discussion",
+        "meeting",
+        "article"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "make",
+      "meaning": "만들다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "meeting",
+      "meaning": "회의",
+      "partOfSpeech": "noun",
+      "related": [
+        "discussion",
+        "lecture",
+        "decision"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "mistakes",
+      "meaning": "실수들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "practice",
+      "meaning": "연습",
+      "partOfSpeech": "noun",
+      "related": [
+        "skills",
+        "progress",
+        "study"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "public",
+      "meaning": "공공의",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "speaking",
+      "meaning": "말하기",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "success",
+      "meaning": "성공",
+      "partOfSpeech": "noun",
+      "related": [
+        "progress",
+        "growth",
+        "achievement"
+      ],
+      "opposites": [
+        "failure"
+      ]
+    },
+    {
+      "word": "teamwork",
+      "meaning": "팀워크",
+      "partOfSpeech": "noun",
+      "related": [
+        "cooperation",
+        "support",
+        "discussion"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "valuable",
+      "meaning": "가치 있는",
+      "partOfSpeech": "adjective",
+      "related": [
+        "important",
+        "great",
+        "useful"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "work",
+      "meaning": "일, 일하다",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "actions",
+      "meaning": "행동들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "appreciate",
+      "meaning": "감사하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "avoid",
+      "meaning": "피하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "careful",
+      "meaning": "조심하는",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "change",
+      "meaning": "변화, 바꾸다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "city",
+      "meaning": "도시",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "communicate",
+      "meaning": "소통하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "express",
+        "discuss",
+        "support"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "consistent",
+      "meaning": "꾸준한",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "customer",
+      "meaning": "고객",
+      "partOfSpeech": "noun",
+      "related": [
+        "company",
+        "satisfaction",
+        "service"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "discussion",
+      "meaning": "토론",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "effort",
+      "meaning": "노력",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "encouraged",
+      "meaning": "격려받은",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "future",
+      "meaning": "미래",
+      "partOfSpeech": "noun",
+      "related": [
+        "progress",
+        "growth",
+        "goals"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "importance",
+      "meaning": "중요성",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "important",
+      "meaning": "중요한",
+      "partOfSpeech": "adjective",
+      "related": [
+        "valuable",
+        "great",
+        "critical"
+      ],
+      "opposites": [
+        "minor"
+      ]
+    },
+    {
+      "word": "internet",
+      "meaning": "인터넷",
+      "partOfSpeech": "noun",
+      "related": [
+        "technology",
+        "information",
+        "communication"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "manage",
+      "meaning": "관리하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "solve",
+        "improve",
+        "support"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "positive",
+      "meaning": "긍정적인",
+      "partOfSpeech": "adjective",
+      "related": [
+        "grateful",
+        "confident",
+        "calm"
+      ],
+      "opposites": [
+        "negative"
+      ]
+    },
+    {
+      "word": "solve",
+      "meaning": "해결하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "improve",
+        "adapt",
+        "manage"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "article",
+      "meaning": "기사",
+      "partOfSpeech": "noun",
+      "related": [
+        "report",
+        "information",
+        "issue"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "calm",
+      "meaning": "침착한",
+      "partOfSpeech": "adjective",
+      "related": [
+        "confident",
+        "positive",
+        "careful"
+      ],
+      "opposites": [
+        "anxious"
+      ]
+    },
+    {
+      "word": "cooperation",
+      "meaning": "협력",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "decisions",
+      "meaning": "결정들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "different",
+      "meaning": "다른",
+      "partOfSpeech": "adjective",
+      "related": [
+        "new",
+        "innovative",
+        "public"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "economy",
+      "meaning": "경제",
+      "partOfSpeech": "noun",
+      "related": [
+        "government",
+        "growth",
+        "progress"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "effectively",
+      "meaning": "효과적으로",
+      "partOfSpeech": "adverb",
+      "related": [
+        "critically",
+        "completely",
+        "deeply"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "experience",
+      "meaning": "경험",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "focus",
+      "meaning": "집중하다",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "great",
+      "meaning": "훌륭한",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "improvement",
+      "meaning": "향상, 개선",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "information",
+      "meaning": "정보",
+      "partOfSpeech": "noun",
+      "related": [
+        "report",
+        "article",
+        "evidence"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "innovation",
+      "meaning": "혁신",
+      "partOfSpeech": "noun",
+      "related": [
+        "technology",
+        "ideas",
+        "progress"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "interested",
+      "meaning": "관심 있는",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "issue",
+      "meaning": "문제, 이슈",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "listening",
+      "meaning": "듣기",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "planning",
+      "meaning": "계획",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "progress",
+      "meaning": "발전, 진전",
+      "partOfSpeech": "noun",
+      "related": [
+        "improvement",
+        "growth",
+        "success"
+      ],
+      "opposites": [
+        "setback"
+      ]
+    },
+    {
+      "word": "provides",
+      "meaning": "제공한다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "report",
+      "meaning": "보고서",
+      "partOfSpeech": "noun",
+      "related": [
+        "article",
+        "information",
+        "evidence"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "satisfaction",
+      "meaning": "만족",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "situation",
+      "meaning": "상황",
+      "partOfSpeech": "noun",
+      "related": [
+        "problem",
+        "issue",
+        "decision"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "solving",
+      "meaning": "해결하기",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "study",
+      "meaning": "공부하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "support",
+      "meaning": "지원",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": [
+        "oppose"
+      ]
+    },
+    {
+      "word": "use",
+      "meaning": "사용하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "way",
+      "meaning": "방식",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "words",
+      "meaning": "말, 단어",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "abroad",
+      "meaning": "해외",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "access",
+      "meaning": "접근",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "achieve",
+      "meaning": "달성하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "improve",
+        "develop",
+        "progress"
+      ],
+      "opposites": [
+        "fail"
+      ]
+    },
+    {
+      "word": "adapt",
+      "meaning": "적응하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "change",
+        "improve",
+        "continue"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "answer",
+      "meaning": "답, 대답하다",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "argument",
+      "meaning": "주장",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "arrived",
+      "meaning": "도착했다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "believe",
+      "meaning": "믿다",
+      "partOfSpeech": "verb",
+      "related": [
+        "think",
+        "trust",
+        "understand"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "book",
+      "meaning": "책",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "coffee",
+      "meaning": "커피",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "completely",
+      "meaning": "완전히",
+      "partOfSpeech": "adverb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "complicated",
+      "meaning": "복잡한",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "confidence",
+      "meaning": "자신감",
+      "partOfSpeech": "noun",
+      "related": [
+        "progress",
+        "success",
+        "skills"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "contains",
+      "meaning": "포함한다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "continue",
+      "meaning": "계속하다",
+      "partOfSpeech": "verb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "continuous",
+      "meaning": "지속적인",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "creativity",
+      "meaning": "창의성",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "critically",
+      "meaning": "비판적으로",
+      "partOfSpeech": "adverb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "decision",
+      "meaning": "결정",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "deeply",
+      "meaning": "깊게",
+      "partOfSpeech": "adverb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "developed",
+      "meaning": "발전한, 개발된",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "difficult",
+      "meaning": "어려운",
+      "partOfSpeech": "adjective",
+      "related": [
+        "complicated",
+        "challenging",
+        "critical"
+      ],
+      "opposites": [
+        "easy"
+      ]
+    },
+    {
+      "word": "dramatically",
+      "meaning": "극적으로",
+      "partOfSpeech": "adverb",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "eager",
+      "meaning": "열망하는",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "education",
+      "meaning": "교육",
+      "partOfSpeech": "noun",
+      "related": [
+        "students",
+        "teacher",
+        "lecture"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "employees",
+      "meaning": "직원들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "encourage",
+      "meaning": "격려하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "support",
+        "improve",
+        "inspire"
+      ],
+      "opposites": [
+        "discourage"
+      ]
+    },
+    {
+      "word": "environmental",
+      "meaning": "환경의",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "event",
+      "meaning": "행사",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "evidence",
+      "meaning": "증거",
+      "partOfSpeech": "noun",
+      "related": [
+        "information",
+        "report",
+        "argument"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "expectations",
+      "meaning": "기대들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "explained",
+      "meaning": "설명했다",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "express",
+      "meaning": "표현하다",
+      "partOfSpeech": "verb",
+      "related": [
+        "communicate",
+        "explain",
+        "share"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "facing",
+      "meaning": "직면한",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "forgot",
+      "meaning": "잊었다",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "gained",
+      "meaning": "얻었다",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "grateful",
+      "meaning": "감사하는",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "growth",
+      "meaning": "성장",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": [
+        "decline"
+      ]
+    },
+    {
+      "word": "ideas",
+      "meaning": "아이디어들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "innovative",
+      "meaning": "혁신적인",
+      "partOfSpeech": "adjective",
+      "related": [
+        "creative",
+        "new",
+        "different"
+      ],
+      "opposites": []
+    },
+    {
+      "word": "inspired",
+      "meaning": "영감을 받은",
+      "partOfSpeech": "adjective",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "introduced",
+      "meaning": "도입했다",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    },
+    {
+      "word": "issues",
+      "meaning": "문제들",
+      "partOfSpeech": "noun",
+      "related": [],
+      "opposites": []
+    }
+  ]
 }

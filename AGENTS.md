@@ -21,11 +21,14 @@
 - 앱 시작 시 `bootstrap()`이 `./data.json`을 fetch하여 문장/발음 데이터를 로드한 뒤 렌더링을 시작합니다.
 
 ### 문장 데이터 계약
-- `data.json`은 최상위에 `sentences`(문자열 배열), `pronunciationMap`(객체) 키를 가져야 합니다.
+- `data.json`은 최상위에 `sentences`(문자열 배열), `pronunciationMap`(객체), `vocabulary`(배열) 키를 가져야 합니다.
 - `sentences`의 각 항목은 `English — Korean`(em dash) 또는 `English - Korean`(hyphen) 형식의 이중언어 문자열이어야 합니다.
 - `sentences`의 평서문은 영어/한글 뜻 모두 문장 끝에 마침표(`.`)를 유지하고, 의문문은 물음표(`?`)를 유지해야 합니다.
 - `DEFAULT_LINES`는 런타임 시작 시 `data.json.sentences`로 채워집니다.
 - `PRONUNCIATION_MAP`은 런타임 시작 시 `data.json.pronunciationMap`으로 채워집니다.
+- `WORD_QUIZ_DATA`는 런타임 시작 시 `data.json.vocabulary`로 채워집니다.
+- `vocabulary`의 각 항목은 최소 `{ word, meaning, partOfSpeech }` 형태여야 하며, `word`는 소문자 영어 단어, `meaning`은 한국어 뜻 문자열, `partOfSpeech`는 `noun | verb | adjective | adverb` 중 하나여야 합니다.
+- `vocabulary` 항목은 선택적으로 `related`(유의어/근접어 단어 배열), `opposites`(반의어 단어 배열)를 가질 수 있습니다.
 - `parseLines(lines)`는 다음을 만족해야 합니다.
   - 두 구분자 형식을 모두 지원
   - 각 항목을 `{ id, english, korean, mastered, starred }` 형태로 매핑
@@ -41,11 +44,13 @@
 
 ### 로컬 저장 계약
 - LocalStorage 키는 `const-english-sentences-v4`를 유지해야 합니다.
+- 단어 퀴즈 진도 저장 키는 `const-english-word-quiz-v1`를 유지해야 합니다.
 - 로드 시:
   - `data.json`에서 최신 기본 문장 본문을 먼저 파싱합니다.
   - 저장 배열이 존재하고 길이가 `DEFAULT_LINES.length` 이상이면 같은 `id` 기준으로 `mastered`, `starred` 진도만 병합합니다.
   - 아니면 기본 문장 파싱 결과로 초기화합니다.
 - 문장 상태(`mastered`, `starred`, reset) 변경 시 전체 `sentences` 배열을 저장해야 합니다.
+- 단어 퀴즈 로드 시 `vocabulary`를 기반으로 퀴즈 아이템을 만들고, 저장된 배열이 현재 길이 이상이면 같은 `word` 기준으로 `mastered` 진도만 병합합니다.
 
 ### 내비게이션 및 상태 동작
 - `safeSetIndex(next)`는 전체 문장 길이 기준으로 인덱스를 순환(wrap)시키고 `answer`/`feedback`을 초기화합니다.
@@ -54,7 +59,8 @@
 - `resetProgress()`는 `mastered`, `starred`를 모두 초기화하고 인덱스/입력/피드백도 함께 초기화해야 합니다.
 
 ### UI 동작 계약
-- 모드: `card` 단일 모드.
+- 모드: `sentence`, `word-quiz` 2개 활성 모드 (`심화 학습` 카드는 표시만 하고 아직 동작하지 않음).
+- 헤더 우측에는 `문장 학습 / 심화 학습 / 단어 퀴즈` 3개의 메뉴 카드가 표시되며, 현재 사용 중인 메뉴만 강조 상태로 보입니다.
 - 앱 최초 로드 시 랜덤으로 선택된 첫 문장을 음성 합성으로 1회 자동 재생합니다.
 - 문장 이동(`previous`, `next`, `random`, 사이드바 선택) 후 새 문장을 음성 합성으로 자동 재생합니다.
 - 음성 재생은 같은 문장에 대해 영어를 먼저 읽고, 그 다음 한글 뜻을 읽습니다.
@@ -66,8 +72,11 @@
 - 카드 모드에서 영어 문장 단어별 한글 발음 보조 표기만 작은 텍스트 칩 형태로 바로 아래에 표시합니다.
 - 단어별 발음 보조 표기는 알파벳 철자 읽기(예: 티·에이치·이)가 아니라 실제 발음에 가까운 한글 표기(예: The→더)로 표시합니다.
 - 관사 `the`의 발음 보조 표기는 다음 단어 첫 글자가 자음이면 `더`, 모음이면 `디`로 표시합니다.
-- 버튼 지원: 영어 문장 표시/숨김 토글, previous/next, 랜덤 on/off 토글, 자동재생 on/off 토글, 듣기 on/off 토글.
-- 헤더 통계 카드는 `전체 / 암기 / 진도 / 진도초기화` 4개 카드 형태로 표시됩니다.
+- 버튼 지원: 영어 문장 표시/숨김 토글, 진도초기화, previous/next, 랜덤 on/off 토글, 자동재생 on/off 토글, 듣기 on/off 토글.
+- `전체 / 암기 / 진도` 통계 카드와 프로그래스바는 우측 문장 리스트 상단에 표시됩니다.
+- 단어 퀴즈 모드는 기존 메인/사이드바 레이아웃을 재사용하며, 메인에는 영단어 1개와 4지선다 뜻 버튼을 표시하고, 정답/오답 후에만 대표 예문과 한글 뜻을 함께 보여줍니다.
+- 단어 퀴즈 선택지는 가능한 경우 `related` / `opposites`를 우선 사용하고, 부족하면 같은 `partOfSpeech` 안에서 나머지 오답을 채웁니다.
+- 단어 퀴즈 사이드바에는 `vocabulary`에서 로드한 단어 목록과 암기 완료 상태를 표시하며, 정답 뜻은 미리 노출하지 않습니다.
 - 암기완료(`mastered=true`) 문장은 학습 대상에서 제외되어 다시 나오지 않습니다. 단, 전체 문장을 모두 암기하면 전체 목록을 다시 순환합니다.
 - 앱 시작 기본값: 랜덤 on, 듣기 on.
 - 사이드바는 전체 문장 인덱스 선택을 지원하며, 암기완료 문장도 `암기완료` 표기로 표시합니다.

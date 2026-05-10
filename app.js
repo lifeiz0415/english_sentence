@@ -82,6 +82,7 @@ function buildTypingMarkup(targetText, typedText) {
 }
 
 let PRONUNCIATION_MAP = {};
+let WORD_QUIZ_DATA = [];
 
 function getWordPronunciation(word) {
   const lower = String(word || "").toLowerCase();
@@ -125,9 +126,11 @@ function runSelfTests() {
 }
 
 const STORAGE_KEY = "const-english-sentences-v4";
+const WORD_QUIZ_STORAGE_KEY = "const-english-word-quiz-v1";
 const DATA_FILE_PATH = "./data.json";
 
 const state = {
+  mode: "sentence",
   sentences: [],
   index: 0,
   answer: "",
@@ -144,6 +147,11 @@ const state = {
   isAutoplaying: false,
   autoplayTimerId: null,
   speechFallbackTimerId: null,
+  wordQuizItems: [],
+  wordQuizIndex: 0,
+  wordQuizFeedback: "",
+  selectedWordChoice: "",
+  wordQuizChoiceMap: {},
 };
 
 function mergeSavedProgress(defaultSentences, savedSentences) {
@@ -171,6 +179,29 @@ function mergeSavedProgress(defaultSentences, savedSentences) {
   });
 }
 
+function mergeSavedWordQuizProgress(defaultItems, savedItems) {
+  if (!Array.isArray(savedItems)) return defaultItems;
+
+  const savedByWord = new Map(
+    savedItems.map((item) => {
+      const normalized = {
+        word: String(item?.word || "").toLowerCase(),
+        mastered: Boolean(item?.mastered),
+      };
+      return [normalized.word, normalized];
+    }),
+  );
+
+  return defaultItems.map((item) => {
+    const saved = savedByWord.get(item.word);
+    if (!saved) return item;
+    return {
+      ...item,
+      mastered: saved.mastered,
+    };
+  });
+}
+
 function loadSentences() {
   const defaultSentences = parseLines(DEFAULT_LINES);
 
@@ -189,6 +220,41 @@ function loadSentences() {
   return defaultSentences;
 }
 
+function buildWordQuizItems() {
+  return WORD_QUIZ_DATA.map((item, index) => {
+    const matchingSentence = state.sentences.find((sentence) => new RegExp(`${item.word.replace(/[-/\^$*+?.()|[\]{}]/g, "\$&")}`, "i").test(sentence.english));
+
+    return {
+      id: index + 1,
+      word: String(item.word || "").toLowerCase(),
+      meaning: String(item.meaning || "").trim(),
+      partOfSpeech: String(item.partOfSpeech || "").trim(),
+      related: Array.isArray(item.related) ? item.related.map((word) => String(word || "").toLowerCase()).filter(Boolean) : [],
+      opposites: Array.isArray(item.opposites) ? item.opposites.map((word) => String(word || "").toLowerCase()).filter(Boolean) : [],
+      mastered: false,
+      sentenceId: matchingSentence?.id || null,
+    };
+  }).filter((item) => item.word && item.meaning && item.partOfSpeech);
+}
+
+function loadWordQuizItems() {
+  const defaultItems = buildWordQuizItems();
+
+  try {
+    const saved = window.localStorage.getItem(WORD_QUIZ_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length >= defaultItems.length) {
+        return mergeSavedWordQuizProgress(defaultItems, parsed);
+      }
+    }
+  } catch (error) {
+    console.warn("Word quiz progress could not be loaded", error);
+  }
+
+  return defaultItems;
+}
+
 async function loadDataFile() {
   try {
     const response = await fetch(DATA_FILE_PATH, { cache: "no-store" });
@@ -198,8 +264,10 @@ async function loadDataFile() {
     if (!data?.pronunciationMap || typeof data.pronunciationMap !== "object") {
       throw new Error("data.json pronunciationMap must be an object");
     }
+    if (!Array.isArray(data?.vocabulary)) throw new Error("data.json vocabulary must be an array");
     DEFAULT_LINES = data.sentences.map((line) => String(line || ""));
     PRONUNCIATION_MAP = data.pronunciationMap;
+    WORD_QUIZ_DATA = data.vocabulary;
   } catch (error) {
     console.error("Data file could not be loaded", error);
     throw error;
@@ -214,6 +282,14 @@ function initializeSentences() {
     const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
     state.index = state.sentences.findIndex((s) => s.id === initial.id);
   }
+
+  state.wordQuizItems = loadWordQuizItems();
+  if (state.wordQuizItems.length > 0) {
+    const quizPool = state.wordQuizItems.filter((item) => !item.mastered);
+    const initialPool = quizPool.length > 0 ? quizPool : state.wordQuizItems;
+    const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
+    state.wordQuizIndex = state.wordQuizItems.findIndex((item) => item.word === initial.word);
+  }
 }
 
 function persist() {
@@ -221,6 +297,17 @@ function persist() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sentences));
   } catch (error) {
     console.warn("Progress could not be saved", error);
+  }
+}
+
+function persistWordQuizProgress() {
+  try {
+    window.localStorage.setItem(
+      WORD_QUIZ_STORAGE_KEY,
+      JSON.stringify(state.wordQuizItems.map((item) => ({ word: item.word, mastered: item.mastered }))),
+    );
+  } catch (error) {
+    console.warn("Word quiz progress could not be saved", error);
   }
 }
 
@@ -234,6 +321,18 @@ function getCurrent() {
   if (active.length === 0) return null;
   const currentById = active.find((s) => s.id === state.index);
   return currentById || active[0] || null;
+}
+
+function getActiveWordQuizItems() {
+  const unmastered = state.wordQuizItems.filter((item) => !item.mastered);
+  return unmastered.length > 0 ? unmastered : state.wordQuizItems;
+}
+
+function getCurrentWordQuizItem() {
+  const active = getActiveWordQuizItems();
+  if (active.length === 0) return null;
+  const currentByWord = active.find((item) => item.word === state.wordQuizItems[state.wordQuizIndex]?.word);
+  return currentByWord || active[0] || null;
 }
 
 function safeSetIndex(nextIdOrOffset, useOffset = true) {
@@ -256,10 +355,39 @@ function safeSetIndex(nextIdOrOffset, useOffset = true) {
   state.feedback = "";
 }
 
+function safeSetWordQuizIndex(nextWordOrOffset, useOffset = true) {
+  const active = getActiveWordQuizItems();
+  if (active.length === 0) {
+    state.wordQuizIndex = 0;
+    return;
+  }
+
+  if (useOffset) {
+    const currentWord = state.wordQuizItems[state.wordQuizIndex]?.word;
+    const currentPos = Math.max(0, active.findIndex((item) => item.word === currentWord));
+    const nextPos = (currentPos + nextWordOrOffset + active.length) % active.length;
+    const nextWord = active[nextPos].word;
+    state.wordQuizIndex = state.wordQuizItems.findIndex((item) => item.word === nextWord);
+  } else {
+    const exact = active.find((item) => item.word === nextWordOrOffset);
+    const targetWord = exact ? exact.word : active[0].word;
+    state.wordQuizIndex = state.wordQuizItems.findIndex((item) => item.word === targetWord);
+  }
+
+  state.wordQuizFeedback = "";
+  state.selectedWordChoice = "";
+}
+
 function updateCurrent(patch, current) {
   if (!current) return;
   state.sentences = state.sentences.map((s) => (s.id === current.id ? { ...s, ...patch } : s));
   persist();
+}
+
+function updateWordQuizCurrent(patch, current) {
+  if (!current) return;
+  state.wordQuizItems = state.wordQuizItems.map((item) => (item.word === current.word ? { ...item, ...patch } : item));
+  persistWordQuizProgress();
 }
 
 function clearAutoplayTimer() {
@@ -425,6 +553,78 @@ function toggleAutoplay() {
   render();
 }
 
+function getWordQuizChoices(current) {
+  if (!current) return [];
+  if (state.wordQuizChoiceMap[current.word]) {
+    return state.wordQuizChoiceMap[current.word];
+  }
+
+  const candidatePool = state.wordQuizItems.filter(
+    (item) => item.word !== current.word && item.meaning !== current.meaning && item.partOfSpeech === current.partOfSpeech,
+  );
+  const preferredWords = [...new Set([...current.related, ...current.opposites])];
+  const preferredDistractors = preferredWords
+    .map((word) => candidatePool.find((item) => item.word === word))
+    .filter(Boolean)
+    .map((item) => item.meaning);
+  const fallbackDistractors = candidatePool
+    .filter((item) => !preferredWords.includes(item.word))
+    .sort(() => Math.random() - 0.5)
+    .map((item) => item.meaning);
+  const distractors = [...new Set([...preferredDistractors, ...fallbackDistractors])].slice(0, 3);
+
+  const choices = [current.meaning, ...distractors].sort(() => Math.random() - 0.5);
+  state.wordQuizChoiceMap[current.word] = choices;
+  return choices;
+}
+
+function getWordQuizSentence(item) {
+  if (!item?.sentenceId) return null;
+  return state.sentences.find((sentence) => sentence.id === item.sentenceId) || null;
+}
+
+function speakWordQuizItem(item) {
+  if (!item || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === "undefined") return;
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new window.SpeechSynthesisUtterance(item.word);
+    utterance.lang = "en-US";
+    utterance.rate = 0.85;
+    window.speechSynthesis.speak(utterance);
+  } catch (error) {
+    console.warn("Word quiz speech is unavailable in this browser context", error);
+  }
+}
+
+function handleWordQuizAnswer(choice) {
+  const current = getCurrentWordQuizItem();
+  if (!current) return;
+
+  state.selectedWordChoice = choice;
+
+  if (choice !== current.meaning) {
+    state.wordQuizFeedback = `오답 · 정답은 ${current.meaning}`;
+    render();
+    return;
+  }
+
+  state.wordQuizFeedback = "정답!";
+  updateWordQuizCurrent({ mastered: true }, current);
+  if (state.isRandomOn) {
+    const pool = getActiveWordQuizItems();
+    if (pool.length > 0) {
+      let nextWord = pool[Math.floor(Math.random() * pool.length)].word;
+      if (pool.length > 1 && nextWord === current.word) {
+        nextWord = pool.find((item) => item.word !== current.word)?.word || nextWord;
+      }
+      safeSetWordQuizIndex(nextWord, false);
+    }
+  } else {
+    safeSetWordQuizIndex(1, true);
+  }
+  render();
+}
+
 function checkCardTypingAndAdvance(current) {
   if (!current) return;
   if (state.isComposing) return false;
@@ -467,6 +667,17 @@ function handleActionClick(el) {
     stopAutoplay();
   }
 
+  if (action.startsWith("set-mode-")) {
+    state.mode = action.replace("set-mode-", "");
+    state.answer = "";
+    state.feedback = "";
+    state.wordQuizFeedback = "";
+    state.selectedWordChoice = "";
+    state.shouldRefocusCardInput = state.mode === "sentence";
+    render();
+    return;
+  }
+
   switch (action) {
     case "toggle-english-visible":
       state.isEnglishVisible = !state.isEnglishVisible;
@@ -481,10 +692,28 @@ function handleActionClick(el) {
       state.isRandomOn = !state.isRandomOn;
       break;
     case "prev":
-      safeSetIndex(-1, true);
+      if (state.mode === "word-quiz") {
+        safeSetWordQuizIndex(-1, true);
+      } else {
+        safeSetIndex(-1, true);
+      }
       break;
     case "next":
-      if (state.isRandomOn) {
+      if (state.mode === "word-quiz") {
+        const currentWord = getCurrentWordQuizItem();
+        if (state.isRandomOn) {
+          const pool = getActiveWordQuizItems();
+          if (pool.length > 0) {
+            let nextWord = pool[Math.floor(Math.random() * pool.length)].word;
+            if (pool.length > 1 && nextWord === currentWord?.word) {
+              nextWord = pool.find((item) => item.word !== currentWord?.word)?.word || nextWord;
+            }
+            safeSetWordQuizIndex(nextWord, false);
+          }
+        } else {
+          safeSetWordQuizIndex(1, true);
+        }
+      } else if (state.isRandomOn) {
         safeSetIndex(getAdvanceIndex(), false);
       } else {
         safeSetIndex(1, true);
@@ -501,11 +730,26 @@ function handleActionClick(el) {
       safeSetIndex(id, false);
       break;
     }
+    case "pick-word": {
+      const word = String(el.getAttribute("data-word") || "");
+      safeSetWordQuizIndex(word, false);
+      break;
+    }
+    case "answer-word-quiz":
+      handleWordQuizAnswer(String(el.getAttribute("data-meaning") || ""));
+      return;
     default:
       break;
   }
 
-  if ((action === "prev" || action === "next" || action === "pick") && state.isListenOn) {
+  if (state.mode === "word-quiz") {
+    if ((action === "prev" || action === "next" || action === "pick-word") && state.isListenOn) {
+      const currentWord = getCurrentWordQuizItem();
+      if (currentWord) {
+        speakWordQuizItem(currentWord);
+      }
+    }
+  } else if ((action === "prev" || action === "next" || action === "pick") && state.isListenOn) {
     state.shouldSpeakAfterRender = true;
   }
 
@@ -515,68 +759,140 @@ function handleActionClick(el) {
 function render() {
   cancelTypingRaf();
   const root = document.getElementById("root");
-  const current = getCurrent();
+  const isWordQuizMode = state.mode === "word-quiz";
+  const currentSentence = getCurrent();
+  const currentWordQuiz = getCurrentWordQuizItem();
 
-  if (!current) {
-    root.innerHTML = `<div class=\"min-h-screen p-6\">학습할 문장이 없습니다.</div>`;
+  if (!currentSentence || (isWordQuizMode && !currentWordQuiz)) {
+    root.innerHTML = `<div class="min-h-screen p-6">학습할 문장이 없습니다.</div>`;
     return;
   }
 
-  const masteredCount = state.sentences.filter((s) => s.mastered).length;
-  const progress = state.sentences.length ? Math.round((masteredCount / state.sentences.length) * 100) : 0;
+  const progressSource = isWordQuizMode ? state.wordQuizItems : state.sentences;
+  const masteredCount = progressSource.filter((item) => item.mastered).length;
+  const progress = progressSource.length ? Math.round((masteredCount / progressSource.length) * 100) : 0;
+  const currentWordSentence = isWordQuizMode ? getWordQuizSentence(currentWordQuiz) : null;
+  const wordQuizChoices = isWordQuizMode ? getWordQuizChoices(currentWordQuiz) : [];
+
+  const leftControls = isWordQuizMode
+    ? `<span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">단어 #${currentWordQuiz.id}</span>`
+    : `
+      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">#${currentSentence.id}</span>
+      <button data-action="toggle-english-visible" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isEnglishVisible ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isEnglishVisible ? "문장 보임" : "문장 숨김"}</button>
+      <button data-action="reset-progress" class="rounded-2xl px-4 py-2 text-sm font-bold transition bg-slate-900 text-white">진도초기화</button>
+      ${currentSentence.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
+    `;
+
+  const rightControls = `
+    <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
+    ${isWordQuizMode ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
+    <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
+  `;
+
+  const mainContent = isWordQuizMode
+    ? `
+      <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
+        <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
+          <p class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${escapeHtml(currentWordQuiz.word)}</p>
+        </div>
+        <div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5">
+          <div class="flex flex-wrap gap-2">
+            <span class="inline-flex min-w-[32px] items-center rounded-lg bg-white/70 px-3 py-1 text-base font-semibold text-slate-600">${escapeHtml(getWordPronunciation(currentWordQuiz.word) || "발음 없음")}</span>
+          </div>
+        </div>
+        <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+          ${wordQuizChoices
+            .map((meaning) => {
+              const isSelected = state.selectedWordChoice === meaning;
+              const isCorrect = meaning === currentWordQuiz.meaning;
+              const resultClass = isSelected
+                ? isCorrect
+                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                  : "bg-rose-100 text-rose-800 border-rose-300"
+                : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
+              return `<button data-action="answer-word-quiz" data-meaning="${escapeHtml(meaning)}" class="rounded-2xl border p-4 text-left text-lg font-bold transition ${resultClass}">${escapeHtml(meaning)}</button>`;
+            })
+            .join("")}
+        </div>
+        ${state.wordQuizFeedback ? `<p class="mt-5 rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${escapeHtml(state.wordQuizFeedback)}</p>` : ""}
+        ${state.selectedWordChoice && currentWordSentence ? `
+          <div class="mt-5 space-y-3">
+            <p class="rounded-2xl bg-white p-4 text-lg font-bold text-slate-800 shadow-sm">예문 · ${escapeHtml(currentWordSentence.english)}</p>
+            <p class="rounded-2xl bg-white p-4 text-lg font-semibold text-slate-700 shadow-sm">${escapeHtml(currentWordSentence.korean)}</p>
+          </div>
+        ` : ""}
+      </div>
+    `
+    : `
+      <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
+        <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
+          <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${state.isEnglishVisible ? buildTypingMarkup(currentSentence.english, state.answer) : '<span class="text-slate-300">문장이 숨겨져 있습니다.</span>'}</p>
+        </div>
+        <div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5">
+          <div class="flex flex-wrap gap-2 ${state.isEnglishVisible ? "" : "opacity-0 select-none"}">${buildPronunciationMarkup(currentSentence.english)}</div>
+        </div>
+        <div class="mt-8 space-y-5">
+          <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${currentSentence.korean}</p>
+          <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
+          ${state.feedback ? `<p class="rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${state.feedback}</p>` : ""}
+        </div>
+      </div>
+    `;
+
+  const sidebarItems = isWordQuizMode
+    ? state.wordQuizItems
+        .map((item) => `
+          <button data-action="pick-word" data-word="${escapeHtml(item.word)}" class="w-full rounded-2xl p-3 text-left transition ${item.word === currentWordQuiz.word ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
+            <div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-bold">#${item.id}</span>
+                <span class="text-xs">${item.mastered ? " 암기완료" : ""}</span>
+              </div>
+              <p class="mt-1 text-sm font-semibold">${escapeHtml(item.word)}</p>
+              <p class="mt-1 text-xs ${item.word === currentWordQuiz.word ? "text-slate-200" : "text-slate-500"}">${item.mastered ? "암기완료" : "준비됨"}</p>
+            </div>
+          </button>
+        `)
+        .join("")
+    : state.sentences
+        .map((s) => `
+          <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === currentSentence.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
+            <div class="${state.isEnglishVisible ? "" : "text-transparent select-none"}">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-xs font-bold">#${s.id}</span>
+                <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 암기완료" : ""}</span>
+              </div>
+              <p class="mt-1 text-sm font-semibold">${s.english}</p>
+              <p class="mt-1 text-xs ${s.id === currentSentence.id ? "text-slate-200" : "text-slate-500"}">${s.korean}</p>
+            </div>
+          </button>
+        `)
+        .join("");
 
   root.innerHTML = `
     <div class="min-h-screen px-[5vw] py-[2.5vh] text-slate-900">
       <div class="mx-auto w-full space-y-5">
         <header class="rounded-3xl bg-white p-5 shadow-sm">
-          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               <p class="text-sm font-semibold text-slate-500">Master English with 365 Sentences</p>
               <h1 class="text-2xl font-bold md:text-4xl">🎯 365문장으로 영어 마스터하기</h1>
             </div>
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${state.sentences.length}</div></div>
-                <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
-                <div class="rounded-2xl bg-slate-100 px-4 py-3 text-center"><div class="text-xs font-semibold text-slate-500">진도</div><div class="text-xl font-extrabold">${progress}%</div></div>
-                <button data-action="reset-progress" class="rounded-2xl bg-slate-100 px-4 py-3 text-center transition hover:bg-slate-200">
-                  <div class="text-xs font-semibold text-slate-500">진도</div>
-                  <div class="text-lg font-extrabold">초기화</div>
-                </button>
-              </div>
+            <div class="grid grid-cols-3 gap-2 md:min-w-[240px]">
+              <button data-action="set-mode-sentence" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}">문장<br />학습</button>
+              <button class="aspect-square rounded-2xl bg-slate-100 px-4 py-3 text-center text-sm font-bold text-slate-700 shadow-sm leading-tight">심화<br />학습</button>
+              <button data-action="set-mode-word-quiz" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-quiz" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}">단어<br />퀴즈</button>
+            </div>
           </div>
-          <div class="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
         </header>
 
         <section class="grid items-start gap-4 md:grid-cols-[1fr_320px]">
           <main id="main-panel" class="rounded-3xl bg-white p-5 shadow-sm md:p-8">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">#${current.id}</span>
-                <button data-action="toggle-english-visible" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isEnglishVisible ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isEnglishVisible ? "문장 보임" : "문장 숨김"}</button>
-                ${current.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
-              </div>
-              <div class="flex items-center gap-2">
-                <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
-                <button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>
-                <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
-              </div>
+              <div class="flex items-center gap-2">${leftControls}</div>
+              <div class="flex items-center gap-2">${rightControls}</div>
             </div>
-
-            <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-              <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
-                <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${state.isEnglishVisible ? buildTypingMarkup(current.english, state.answer) : '<span class="text-slate-300">문장이 숨겨져 있습니다.</span>'}</p>
-              </div>
-              <div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5">
-                <div class="flex flex-wrap gap-2 ${state.isEnglishVisible ? "" : "opacity-0 select-none"}">${buildPronunciationMarkup(current.english)}</div>
-              </div>
-
-              <div class="mt-8 space-y-5">
-                <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${current.korean}</p>
-                <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
-                ${state.feedback ? `<p class=\"rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm\">${state.feedback}</p>` : ""}
-              </div>
-            </div>
-
+            ${mainContent}
             <div class="mt-5 flex flex-wrap justify-between gap-2">
               <button data-action="prev" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">이전</button>
               <div class="flex gap-2"></div>
@@ -584,22 +900,17 @@ function render() {
             </div>
           </main>
 
-          <aside class="self-stretch">
-            <div class="space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
-              ${state.sentences
-                .map((s) => `
-                  <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === current.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
-                    <div class="${state.isEnglishVisible ? "" : "text-transparent select-none"}">
-                      <div class="flex items-center justify-between gap-2">
-                        <span class="text-xs font-bold">#${s.id}</span>
-                        <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 암기완료" : ""}</span>
-                      </div>
-                      <p class="mt-1 text-sm font-semibold">${s.english}</p>
-                      <p class="mt-1 text-xs ${s.id === current.id ? "text-slate-200" : "text-slate-500"}">${s.korean}</p>
-                    </div>
-                  </button>
-                `)
-                .join("")}
+          <aside id="sidebar-panel" class="flex min-h-0 flex-col gap-4 self-stretch">
+            <div class="space-y-3 rounded-3xl bg-white p-3 shadow-sm">
+              <div class="grid grid-cols-3 gap-2">
+                <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${progressSource.length}</div></div>
+                <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
+                <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">진도</div><div class="text-xl font-extrabold">${progress}%</div></div>
+              </div>
+              <div class="h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
+            </div>
+            <div class="min-h-0 flex-1 space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
+              ${sidebarItems}
             </div>
           </aside>
         </section>
@@ -610,7 +921,7 @@ function render() {
   const cardAnswerInput = document.getElementById("card-answer-input");
   const englishDisplay = document.getElementById("english-display");
 
-  if (cardAnswerInput) {
+  if (!isWordQuizMode && cardAnswerInput) {
     cardAnswerInput.addEventListener("paste", (e) => {
       e.preventDefault();
     });
@@ -622,8 +933,8 @@ function render() {
     cardAnswerInput.addEventListener("compositionend", (e) => {
       state.isComposing = false;
       state.answer = e.target.value;
-      scheduleTypingHighlightUpdate(englishDisplay, current);
-      const didAdvance = checkCardTypingAndAdvance(current);
+      scheduleTypingHighlightUpdate(englishDisplay, currentSentence);
+      const didAdvance = checkCardTypingAndAdvance(currentSentence);
       if (didAdvance) {
         render();
         return;
@@ -633,9 +944,9 @@ function render() {
     cardAnswerInput.addEventListener("input", (e) => {
       state.answer = e.target.value;
       if (!state.isComposing) {
-        scheduleTypingHighlightUpdate(englishDisplay, current);
+        scheduleTypingHighlightUpdate(englishDisplay, currentSentence);
       }
-      const didAdvance = checkCardTypingAndAdvance(current);
+      const didAdvance = checkCardTypingAndAdvance(currentSentence);
       if (didAdvance) {
         render();
       }
@@ -645,32 +956,36 @@ function render() {
       cardAnswerInput.focus({ preventScroll: true });
     }
     if (state.shouldRefocusCardInput) {
-      const end = cardAnswerInput.value.length;
-      cardAnswerInput.setSelectionRange(end, end);
+      const endIndex = cardAnswerInput.value.length;
+      cardAnswerInput.setSelectionRange(endIndex, endIndex);
       state.shouldRefocusCardInput = false;
     }
   }
 
   const syncListHeightToMainPanel = () => {
-    const listWrap = document.getElementById("list-wrap");
+    const sidebarPanel = document.getElementById("sidebar-panel");
     const mainPanel = document.getElementById("main-panel");
-    if (!listWrap || !mainPanel) return;
+    if (!sidebarPanel || !mainPanel) return;
     const mainVisibleHeight = mainPanel.offsetHeight;
     const targetHeight = `${mainVisibleHeight}px`;
-    if (mainVisibleHeight > 0 && listWrap.style.height !== targetHeight) {
-      listWrap.style.height = targetHeight;
+    if (mainVisibleHeight > 0 && sidebarPanel.style.height !== targetHeight) {
+      sidebarPanel.style.height = targetHeight;
     }
   };
 
   const scrollCurrentItemToTop = (force = false) => {
-    if (!force && state.lastScrolledSentenceId === current.id) return;
+    const currentKey = isWordQuizMode ? currentWordQuiz.word : currentSentence.id;
+    if (!force && state.lastScrolledSentenceId === currentKey) return;
     const listWrap = document.getElementById("list-wrap");
     if (!listWrap) return;
-    const activeItem = listWrap.querySelector(`[data-sentence-id="${current.id}"]`);
+    const selector = isWordQuizMode
+      ? `[data-word="${currentWordQuiz.word}"]`
+      : `[data-sentence-id="${currentSentence.id}"]`;
+    const activeItem = listWrap.querySelector(selector);
     if (!activeItem) return;
     const targetTop = activeItem.offsetTop - listWrap.offsetTop;
     listWrap.scrollTop = Math.max(0, targetTop);
-    state.lastScrolledSentenceId = current.id;
+    state.lastScrolledSentenceId = currentKey;
   };
 
   syncListHeightToMainPanel();
@@ -680,14 +995,21 @@ function render() {
     scrollCurrentItemToTop(true);
   });
 
+  if (isWordQuizMode) {
+    if (state.isListenOn) {
+      speakWordQuizItem(currentWordQuiz);
+    }
+    return;
+  }
+
   if (!state.hasAutoSpokenOnFirstCard) {
     state.hasAutoSpokenOnFirstCard = true;
-    if (state.isListenOn) speak(current);
+    if (state.isListenOn) speak(currentSentence);
   }
 
   if (state.shouldSpeakAfterRender) {
     state.shouldSpeakAfterRender = false;
-    if (state.isListenOn) speak(current);
+    if (state.isListenOn) speak(currentSentence);
   }
 }
 
