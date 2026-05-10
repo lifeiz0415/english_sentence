@@ -82,7 +82,8 @@ function buildTypingMarkup(targetText, typedText) {
 }
 
 let PRONUNCIATION_MAP = {};
-let WORD_QUIZ_DATA = [];
+let BASIC_WORD_QUIZ_DATA = [];
+let ADVANCED_WORD_QUIZ_DATA = [];
 
 function getWordPronunciation(word) {
   const lower = String(word || "").toLowerCase();
@@ -125,19 +126,24 @@ function runSelfTests() {
   console.assert(DEFAULT_LINES.length === 365, "DEFAULT_LINES should contain all 365 sentences");
 }
 
-const STORAGE_KEY = "const-english-sentences-v4";
-const WORD_QUIZ_STORAGE_KEY = "const-english-word-quiz-v1";
+const BASIC_SENTENCE_STORAGE_KEY = "const-english-sentences-v4";
+const ADVANCED_SENTENCE_STORAGE_KEY = "const-english-sentences-advanced-v1";
+const BASIC_WORD_QUIZ_STORAGE_KEY = "const-english-word-quiz-v1";
+const ADVANCED_WORD_QUIZ_STORAGE_KEY = "const-english-word-quiz-advanced-v1";
 const DATA_FILE_PATH = "./data.json";
 
 const state = {
-  mode: "sentence",
-  sentences: [],
-  index: 0,
+  mode: "sentence-basic",
+  basicSentences: [],
+  advancedSentences: [],
+  basicIndex: 0,
+  advancedIndex: 0,
   answer: "",
   feedback: "",
   isEnglishVisible: true,
   lastScrolledSentenceId: null,
-  hasAutoSpokenOnFirstCard: false,
+  hasAutoSpokenOnFirstCardBasic: false,
+  hasAutoSpokenOnFirstCardAdvanced: false,
   shouldSpeakAfterRender: false,
   shouldRefocusCardInput: false,
   isComposing: false,
@@ -147,11 +153,15 @@ const state = {
   isAutoplaying: false,
   autoplayTimerId: null,
   speechFallbackTimerId: null,
-  wordQuizItems: [],
-  wordQuizIndex: 0,
+  basicWordQuizItems: [],
+  advancedWordQuizItems: [],
+  basicWordQuizIndex: 0,
+  advancedWordQuizIndex: 0,
   wordQuizFeedback: "",
   selectedWordChoice: "",
+  wordQuizAnsweredCorrectly: false,
   wordQuizChoiceMap: {},
+  wordQuizAdvanceTimerId: null,
 };
 
 function mergeSavedProgress(defaultSentences, savedSentences) {
@@ -202,11 +212,11 @@ function mergeSavedWordQuizProgress(defaultItems, savedItems) {
   });
 }
 
-function loadSentences() {
+function loadSentences(storageKey) {
   const defaultSentences = parseLines(DEFAULT_LINES);
 
   try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
+    const saved = window.localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length >= DEFAULT_LINES.length) {
@@ -220,9 +230,86 @@ function loadSentences() {
   return defaultSentences;
 }
 
-function buildWordQuizItems() {
-  return WORD_QUIZ_DATA.map((item, index) => {
-    const matchingSentence = state.sentences.find((sentence) => new RegExp(`${item.word.replace(/[-/\^$*+?.()|[\]{}]/g, "\$&")}`, "i").test(sentence.english));
+function isSentenceMode() {
+  return state.mode === "sentence-basic" || state.mode === "sentence-advanced";
+}
+
+function isWordQuizMode() {
+  return state.mode === "word-basic" || state.mode === "word-advanced";
+}
+
+function getSentenceStorageKey() {
+  return state.mode === "sentence-advanced" ? ADVANCED_SENTENCE_STORAGE_KEY : BASIC_SENTENCE_STORAGE_KEY;
+}
+
+function getSentenceModeLabel() {
+  return state.mode === "sentence-advanced" ? "심화" : "기초";
+}
+
+function getWordQuizModeLabel() {
+  return state.mode === "word-advanced" ? "심화" : "기초";
+}
+
+function getSentenceProgressList() {
+  return state.mode === "sentence-advanced" ? state.advancedSentences : state.basicSentences;
+}
+
+function setSentenceProgressList(nextSentences) {
+  if (state.mode === "sentence-advanced") {
+    state.advancedSentences = nextSentences;
+  } else {
+    state.basicSentences = nextSentences;
+  }
+}
+
+function getSentenceIndex() {
+  return state.mode === "sentence-advanced" ? state.advancedIndex : state.basicIndex;
+}
+
+function setSentenceIndex(nextIndex) {
+  if (state.mode === "sentence-advanced") {
+    state.advancedIndex = nextIndex;
+  } else {
+    state.basicIndex = nextIndex;
+  }
+}
+
+function getWordQuizStorageKey() {
+  return state.mode === "word-advanced" ? ADVANCED_WORD_QUIZ_STORAGE_KEY : BASIC_WORD_QUIZ_STORAGE_KEY;
+}
+
+function getWordQuizDataSource() {
+  return state.mode === "word-advanced" ? ADVANCED_WORD_QUIZ_DATA : BASIC_WORD_QUIZ_DATA;
+}
+
+function getWordQuizItemsList() {
+  return state.mode === "word-advanced" ? state.advancedWordQuizItems : state.basicWordQuizItems;
+}
+
+function setWordQuizItemsList(nextItems) {
+  if (state.mode === "word-advanced") {
+    state.advancedWordQuizItems = nextItems;
+  } else {
+    state.basicWordQuizItems = nextItems;
+  }
+}
+
+function getWordQuizIndex() {
+  return state.mode === "word-advanced" ? state.advancedWordQuizIndex : state.basicWordQuizIndex;
+}
+
+function setWordQuizIndex(nextIndex) {
+  if (state.mode === "word-advanced") {
+    state.advancedWordQuizIndex = nextIndex;
+  } else {
+    state.basicWordQuizIndex = nextIndex;
+  }
+}
+
+function buildWordQuizItems(items) {
+  return items.map((item, index) => {
+    const escapedWord = item.word.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    const matchingSentence = state.basicSentences.find((sentence) => new RegExp(`\\b${escapedWord}\\b`, "i").test(sentence.english));
 
     return {
       id: index + 1,
@@ -232,16 +319,15 @@ function buildWordQuizItems() {
       related: Array.isArray(item.related) ? item.related.map((word) => String(word || "").toLowerCase()).filter(Boolean) : [],
       opposites: Array.isArray(item.opposites) ? item.opposites.map((word) => String(word || "").toLowerCase()).filter(Boolean) : [],
       mastered: false,
-      sentenceId: matchingSentence?.id || null,
     };
-  }).filter((item) => item.word && item.meaning && item.partOfSpeech);
+  }).filter((item) => item.word && item.partOfSpeech);
 }
 
 function loadWordQuizItems() {
-  const defaultItems = buildWordQuizItems();
+  const defaultItems = buildWordQuizItems(getWordQuizDataSource());
 
   try {
-    const saved = window.localStorage.getItem(WORD_QUIZ_STORAGE_KEY);
+    const saved = window.localStorage.getItem(getWordQuizStorageKey());
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length >= defaultItems.length) {
@@ -265,9 +351,11 @@ async function loadDataFile() {
       throw new Error("data.json pronunciationMap must be an object");
     }
     if (!Array.isArray(data?.vocabulary)) throw new Error("data.json vocabulary must be an array");
+    if (!Array.isArray(data?.advancedVocabulary)) throw new Error("data.json advancedVocabulary must be an array");
     DEFAULT_LINES = data.sentences.map((line) => String(line || ""));
     PRONUNCIATION_MAP = data.pronunciationMap;
-    WORD_QUIZ_DATA = data.vocabulary;
+    BASIC_WORD_QUIZ_DATA = data.vocabulary;
+    ADVANCED_WORD_QUIZ_DATA = data.advancedVocabulary;
   } catch (error) {
     console.error("Data file could not be loaded", error);
     throw error;
@@ -275,26 +363,46 @@ async function loadDataFile() {
 }
 
 function initializeSentences() {
-  state.sentences = loadSentences();
-  if (state.sentences.length > 0) {
-    const unmastered = state.sentences.filter((s) => !s.mastered);
-    const initialPool = unmastered.length > 0 ? unmastered : state.sentences;
+  state.basicSentences = loadSentences(BASIC_SENTENCE_STORAGE_KEY);
+  if (state.basicSentences.length > 0) {
+    const unmastered = state.basicSentences.filter((s) => !s.mastered);
+    const initialPool = unmastered.length > 0 ? unmastered : state.basicSentences;
     const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
-    state.index = state.sentences.findIndex((s) => s.id === initial.id);
+    state.basicIndex = state.basicSentences.findIndex((s) => s.id === initial.id);
   }
 
-  state.wordQuizItems = loadWordQuizItems();
-  if (state.wordQuizItems.length > 0) {
-    const quizPool = state.wordQuizItems.filter((item) => !item.mastered);
-    const initialPool = quizPool.length > 0 ? quizPool : state.wordQuizItems;
+  state.advancedSentences = loadSentences(ADVANCED_SENTENCE_STORAGE_KEY);
+  if (state.advancedSentences.length > 0) {
+    const unmastered = state.advancedSentences.filter((s) => !s.mastered);
+    const initialPool = unmastered.length > 0 ? unmastered : state.advancedSentences;
     const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
-    state.wordQuizIndex = state.wordQuizItems.findIndex((item) => item.word === initial.word);
+    state.advancedIndex = state.advancedSentences.findIndex((s) => s.id === initial.id);
   }
+
+  state.mode = "word-basic";
+  state.basicWordQuizItems = loadWordQuizItems();
+  if (state.basicWordQuizItems.length > 0) {
+    const quizPool = state.basicWordQuizItems.filter((item) => !item.mastered);
+    const initialPool = quizPool.length > 0 ? quizPool : state.basicWordQuizItems;
+    const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
+    state.basicWordQuizIndex = state.basicWordQuizItems.findIndex((item) => item.word === initial.word);
+  }
+
+  state.mode = "word-advanced";
+  state.advancedWordQuizItems = loadWordQuizItems();
+  if (state.advancedWordQuizItems.length > 0) {
+    const quizPool = state.advancedWordQuizItems.filter((item) => !item.mastered);
+    const initialPool = quizPool.length > 0 ? quizPool : state.advancedWordQuizItems;
+    const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
+    state.advancedWordQuizIndex = state.advancedWordQuizItems.findIndex((item) => item.word === initial.word);
+  }
+
+  state.mode = "sentence-basic";
 }
 
 function persist() {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sentences));
+    window.localStorage.setItem(getSentenceStorageKey(), JSON.stringify(getSentenceProgressList()));
   } catch (error) {
     console.warn("Progress could not be saved", error);
   }
@@ -303,8 +411,8 @@ function persist() {
 function persistWordQuizProgress() {
   try {
     window.localStorage.setItem(
-      WORD_QUIZ_STORAGE_KEY,
-      JSON.stringify(state.wordQuizItems.map((item) => ({ word: item.word, mastered: item.mastered }))),
+      getWordQuizStorageKey(),
+      JSON.stringify(getWordQuizItemsList().map((item) => ({ word: item.word, mastered: item.mastered }))),
     );
   } catch (error) {
     console.warn("Word quiz progress could not be saved", error);
@@ -312,43 +420,45 @@ function persistWordQuizProgress() {
 }
 
 function getActiveSentences() {
-  const unmastered = state.sentences.filter((s) => !s.mastered);
-  return unmastered.length > 0 ? unmastered : state.sentences;
+  const sentenceList = getSentenceProgressList();
+  const unmastered = sentenceList.filter((s) => !s.mastered);
+  return unmastered.length > 0 ? unmastered : sentenceList;
 }
 
 function getCurrent() {
   const active = getActiveSentences();
   if (active.length === 0) return null;
-  const currentById = active.find((s) => s.id === state.index);
+  const currentById = active.find((s) => s.id === getSentenceIndex());
   return currentById || active[0] || null;
 }
 
 function getActiveWordQuizItems() {
-  const unmastered = state.wordQuizItems.filter((item) => !item.mastered);
-  return unmastered.length > 0 ? unmastered : state.wordQuizItems;
+  const wordQuizItems = getWordQuizItemsList();
+  const unmastered = wordQuizItems.filter((item) => !item.mastered);
+  return unmastered.length > 0 ? unmastered : wordQuizItems;
 }
 
 function getCurrentWordQuizItem() {
   const active = getActiveWordQuizItems();
   if (active.length === 0) return null;
-  const currentByWord = active.find((item) => item.word === state.wordQuizItems[state.wordQuizIndex]?.word);
+  const currentByWord = active.find((item) => item.word === getWordQuizItemsList()[getWordQuizIndex()]?.word);
   return currentByWord || active[0] || null;
 }
 
 function safeSetIndex(nextIdOrOffset, useOffset = true) {
   const active = getActiveSentences();
   if (active.length === 0) {
-    state.index = 0;
+    setSentenceIndex(0);
     return;
   }
 
   if (useOffset) {
-    const currentPos = Math.max(0, active.findIndex((s) => s.id === state.index));
+    const currentPos = Math.max(0, active.findIndex((s) => s.id === getSentenceIndex()));
     const nextPos = (currentPos + nextIdOrOffset + active.length) % active.length;
-    state.index = active[nextPos].id;
+    setSentenceIndex(active[nextPos].id);
   } else {
     const exact = active.find((s) => s.id === nextIdOrOffset);
-    state.index = exact ? exact.id : active[0].id;
+    setSentenceIndex(exact ? exact.id : active[0].id);
   }
 
   state.answer = "";
@@ -358,35 +468,36 @@ function safeSetIndex(nextIdOrOffset, useOffset = true) {
 function safeSetWordQuizIndex(nextWordOrOffset, useOffset = true) {
   const active = getActiveWordQuizItems();
   if (active.length === 0) {
-    state.wordQuizIndex = 0;
+    setWordQuizIndex(0);
     return;
   }
 
   if (useOffset) {
-    const currentWord = state.wordQuizItems[state.wordQuizIndex]?.word;
+    const currentWord = getWordQuizItemsList()[getWordQuizIndex()]?.word;
     const currentPos = Math.max(0, active.findIndex((item) => item.word === currentWord));
     const nextPos = (currentPos + nextWordOrOffset + active.length) % active.length;
     const nextWord = active[nextPos].word;
-    state.wordQuizIndex = state.wordQuizItems.findIndex((item) => item.word === nextWord);
+    setWordQuizIndex(getWordQuizItemsList().findIndex((item) => item.word === nextWord));
   } else {
     const exact = active.find((item) => item.word === nextWordOrOffset);
     const targetWord = exact ? exact.word : active[0].word;
-    state.wordQuizIndex = state.wordQuizItems.findIndex((item) => item.word === targetWord);
+    setWordQuizIndex(getWordQuizItemsList().findIndex((item) => item.word === targetWord));
   }
 
   state.wordQuizFeedback = "";
   state.selectedWordChoice = "";
+  state.wordQuizAnsweredCorrectly = false;
 }
 
 function updateCurrent(patch, current) {
   if (!current) return;
-  state.sentences = state.sentences.map((s) => (s.id === current.id ? { ...s, ...patch } : s));
+  setSentenceProgressList(getSentenceProgressList().map((s) => (s.id === current.id ? { ...s, ...patch } : s)));
   persist();
 }
 
 function updateWordQuizCurrent(patch, current) {
   if (!current) return;
-  state.wordQuizItems = state.wordQuizItems.map((item) => (item.word === current.word ? { ...item, ...patch } : item));
+  setWordQuizItemsList(getWordQuizItemsList().map((item) => (item.word === current.word ? { ...item, ...patch } : item)));
   persistWordQuizProgress();
 }
 
@@ -401,6 +512,13 @@ function clearSpeechFallbackTimer() {
   if (state.speechFallbackTimerId) {
     window.clearTimeout(state.speechFallbackTimerId);
     state.speechFallbackTimerId = null;
+  }
+}
+
+function clearWordQuizAdvanceTimer() {
+  if (state.wordQuizAdvanceTimerId) {
+    window.clearTimeout(state.wordQuizAdvanceTimerId);
+    state.wordQuizAdvanceTimerId = null;
   }
 }
 
@@ -436,7 +554,7 @@ function getAdvanceIndex() {
   if (active.length < 2) return 1;
   if (!state.isRandomOn) return 1;
 
-  const currentPos = Math.max(0, active.findIndex((s) => s.id === state.index));
+  const currentPos = Math.max(0, active.findIndex((s) => s.id === getSentenceIndex()));
   let randPos = Math.floor(Math.random() * active.length);
   if (randPos === currentPos) randPos = (randPos + 1) % active.length;
   return active[randPos].id;
@@ -517,7 +635,7 @@ function playAutoplayStep() {
         return;
       }
 
-      if (!state.isRandomOn && activeNow.findIndex((s) => s.id === state.index) >= activeNow.length - 1) {
+      if (!state.isRandomOn && activeNow.findIndex((s) => s.id === getSentenceIndex()) >= activeNow.length - 1) {
         stopAutoplay({ keepSpeech: true });
         render();
         return;
@@ -559,7 +677,7 @@ function getWordQuizChoices(current) {
     return state.wordQuizChoiceMap[current.word];
   }
 
-  const candidatePool = state.wordQuizItems.filter(
+  const candidatePool = getWordQuizItemsList().filter(
     (item) => item.word !== current.word && item.meaning !== current.meaning && item.partOfSpeech === current.partOfSpeech,
   );
   const preferredWords = [...new Set([...current.related, ...current.opposites])];
@@ -576,11 +694,6 @@ function getWordQuizChoices(current) {
   const choices = [current.meaning, ...distractors].sort(() => Math.random() - 0.5);
   state.wordQuizChoiceMap[current.word] = choices;
   return choices;
-}
-
-function getWordQuizSentence(item) {
-  if (!item?.sentenceId) return null;
-  return state.sentences.find((sentence) => sentence.id === item.sentenceId) || null;
 }
 
 function speakWordQuizItem(item) {
@@ -600,16 +713,19 @@ function handleWordQuizAnswer(choice) {
   const current = getCurrentWordQuizItem();
   if (!current) return;
 
+  clearWordQuizAdvanceTimer();
+
   state.selectedWordChoice = choice;
 
   if (choice !== current.meaning) {
-    state.wordQuizFeedback = `오답 · 정답은 ${current.meaning}`;
+    state.wordQuizFeedback = "";
+    state.wordQuizAnsweredCorrectly = false;
     render();
     return;
   }
 
   state.wordQuizFeedback = "정답!";
-  updateWordQuizCurrent({ mastered: true }, current);
+  state.wordQuizAnsweredCorrectly = true;
   if (state.isRandomOn) {
     const pool = getActiveWordQuizItems();
     if (pool.length > 0) {
@@ -617,10 +733,20 @@ function handleWordQuizAnswer(choice) {
       if (pool.length > 1 && nextWord === current.word) {
         nextWord = pool.find((item) => item.word !== current.word)?.word || nextWord;
       }
-      safeSetWordQuizIndex(nextWord, false);
+      state.wordQuizAdvanceTimerId = window.setTimeout(() => {
+        updateWordQuizCurrent({ mastered: true }, current);
+        safeSetWordQuizIndex(nextWord, false);
+        state.wordQuizAdvanceTimerId = null;
+        render();
+      }, 1000);
     }
   } else {
-    safeSetWordQuizIndex(1, true);
+    state.wordQuizAdvanceTimerId = window.setTimeout(() => {
+      updateWordQuizCurrent({ mastered: true }, current);
+      safeSetWordQuizIndex(1, true);
+      state.wordQuizAdvanceTimerId = null;
+      render();
+    }, 1000);
   }
   render();
 }
@@ -651,11 +777,22 @@ function checkCardTypingAndAdvance(current) {
 }
 
 function resetProgress() {
-  state.sentences = state.sentences.map((s) => ({ ...s, mastered: false, starred: false }));
-  state.index = 0;
+  setSentenceProgressList(getSentenceProgressList().map((s) => ({ ...s, mastered: false, starred: false })));
+  setSentenceIndex(0);
   state.answer = "";
   state.feedback = "";
   persist();
+}
+
+function resetWordQuizProgress() {
+  setWordQuizItemsList(getWordQuizItemsList().map((item) => ({ ...item, mastered: false })));
+  setWordQuizIndex(0);
+  state.wordQuizFeedback = "";
+  state.selectedWordChoice = "";
+  state.wordQuizAnsweredCorrectly = false;
+  state.wordQuizChoiceMap = {};
+  clearWordQuizAdvanceTimer();
+  persistWordQuizProgress();
 }
 
 function handleActionClick(el) {
@@ -666,6 +803,7 @@ function handleActionClick(el) {
   if (state.isAutoplaying && action !== "toggle-autoplay") {
     stopAutoplay();
   }
+  clearWordQuizAdvanceTimer();
 
   if (action.startsWith("set-mode-")) {
     state.mode = action.replace("set-mode-", "");
@@ -673,7 +811,9 @@ function handleActionClick(el) {
     state.feedback = "";
     state.wordQuizFeedback = "";
     state.selectedWordChoice = "";
-    state.shouldRefocusCardInput = state.mode === "sentence";
+    state.wordQuizAnsweredCorrectly = false;
+    state.wordQuizChoiceMap = {};
+    state.shouldRefocusCardInput = isSentenceMode();
     render();
     return;
   }
@@ -692,14 +832,14 @@ function handleActionClick(el) {
       state.isRandomOn = !state.isRandomOn;
       break;
     case "prev":
-      if (state.mode === "word-quiz") {
+      if (isWordQuizMode()) {
         safeSetWordQuizIndex(-1, true);
       } else {
         safeSetIndex(-1, true);
       }
       break;
     case "next":
-      if (state.mode === "word-quiz") {
+      if (isWordQuizMode()) {
         const currentWord = getCurrentWordQuizItem();
         if (state.isRandomOn) {
           const pool = getActiveWordQuizItems();
@@ -720,7 +860,11 @@ function handleActionClick(el) {
       }
       break;
     case "reset-progress":
-      resetProgress();
+      if (isWordQuizMode()) {
+        resetWordQuizProgress();
+      } else {
+        resetProgress();
+      }
       break;
     case "toggle-autoplay":
       toggleAutoplay();
@@ -742,7 +886,7 @@ function handleActionClick(el) {
       break;
   }
 
-  if (state.mode === "word-quiz") {
+  if (isWordQuizMode()) {
     if ((action === "prev" || action === "next" || action === "pick-word") && state.isListenOn) {
       const currentWord = getCurrentWordQuizItem();
       if (currentWord) {
@@ -759,68 +903,63 @@ function handleActionClick(el) {
 function render() {
   cancelTypingRaf();
   const root = document.getElementById("root");
-  const isWordQuizMode = state.mode === "word-quiz";
+  const wordQuizModeActive = isWordQuizMode();
+  const isSentenceModeActive = isSentenceMode();
   const currentSentence = getCurrent();
   const currentWordQuiz = getCurrentWordQuizItem();
 
-  if (!currentSentence || (isWordQuizMode && !currentWordQuiz)) {
+  if ((!isSentenceModeActive && !wordQuizModeActive) || (isSentenceModeActive && !currentSentence) || (wordQuizModeActive && !currentWordQuiz)) {
     root.innerHTML = `<div class="min-h-screen p-6">학습할 문장이 없습니다.</div>`;
     return;
   }
 
-  const progressSource = isWordQuizMode ? state.wordQuizItems : state.sentences;
+  const sentenceList = getSentenceProgressList();
+  const progressSource = wordQuizModeActive ? getWordQuizItemsList() : sentenceList;
   const masteredCount = progressSource.filter((item) => item.mastered).length;
   const progress = progressSource.length ? Math.round((masteredCount / progressSource.length) * 100) : 0;
-  const currentWordSentence = isWordQuizMode ? getWordQuizSentence(currentWordQuiz) : null;
-  const wordQuizChoices = isWordQuizMode ? getWordQuizChoices(currentWordQuiz) : [];
+  const hasWordQuizMeaning = wordQuizModeActive ? Boolean(currentWordQuiz.meaning) : false;
+  const wordQuizChoices = wordQuizModeActive && hasWordQuizMeaning ? getWordQuizChoices(currentWordQuiz) : [];
 
-  const leftControls = isWordQuizMode
-    ? `<span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">단어 #${currentWordQuiz.id}</span>`
+  const leftControls = wordQuizModeActive
+    ? `
+      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getWordQuizModeLabel()} #${currentWordQuiz.id}</span>
+      <button data-action="reset-progress" class="rounded-2xl px-4 py-2 text-sm font-bold transition bg-slate-100 text-slate-900 shadow-sm hover:bg-slate-900 hover:text-white">진도초기화</button>
+    `
     : `
-      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">#${currentSentence.id}</span>
-      <button data-action="toggle-english-visible" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isEnglishVisible ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isEnglishVisible ? "문장 보임" : "문장 숨김"}</button>
-      <button data-action="reset-progress" class="rounded-2xl px-4 py-2 text-sm font-bold transition bg-slate-900 text-white">진도초기화</button>
+      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getSentenceModeLabel()} #${currentSentence.id}</span>
+      <button data-action="reset-progress" class="rounded-2xl px-4 py-2 text-sm font-bold transition bg-slate-100 text-slate-900 shadow-sm hover:bg-slate-900 hover:text-white">진도초기화</button>
       ${currentSentence.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
     `;
 
   const rightControls = `
-    <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
-    ${isWordQuizMode ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
-    <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-slate-900 text-white" : "bg-white text-slate-900 shadow-sm hover:bg-slate-100"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
+    ${state.mode === "sentence-advanced" ? `<button data-action="toggle-english-visible" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isEnglishVisible ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isEnglishVisible ? "문장 보임" : "문장 숨김"}</button>` : ""}
+    ${wordQuizModeActive ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
+    <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
+    <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
   `;
 
-  const mainContent = isWordQuizMode
+  const mainContent = wordQuizModeActive
     ? `
       <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
         <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
           <p class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${escapeHtml(currentWordQuiz.word)}</p>
         </div>
-        <div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5">
-          <div class="flex flex-wrap gap-2">
-            <span class="inline-flex min-w-[32px] items-center rounded-lg bg-white/70 px-3 py-1 text-base font-semibold text-slate-600">${escapeHtml(getWordPronunciation(currentWordQuiz.word) || "발음 없음")}</span>
+        ${hasWordQuizMeaning ? `
+          <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+            ${wordQuizChoices
+              .map((meaning) => {
+                const isSelected = state.selectedWordChoice === meaning;
+                const isCorrect = meaning === currentWordQuiz.meaning;
+                const resultClass = isSelected
+                  ? isCorrect
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : "bg-rose-100 text-rose-800 border-rose-300"
+                  : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
+                return `<button data-action="answer-word-quiz" data-meaning="${escapeHtml(meaning)}" class="rounded-2xl border p-4 text-left text-lg font-bold transition ${resultClass}">${escapeHtml(meaning)}</button>`;
+              })
+              .join("")}
           </div>
-        </div>
-        <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
-          ${wordQuizChoices
-            .map((meaning) => {
-              const isSelected = state.selectedWordChoice === meaning;
-              const isCorrect = meaning === currentWordQuiz.meaning;
-              const resultClass = isSelected
-                ? isCorrect
-                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                  : "bg-rose-100 text-rose-800 border-rose-300"
-                : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
-              return `<button data-action="answer-word-quiz" data-meaning="${escapeHtml(meaning)}" class="rounded-2xl border p-4 text-left text-lg font-bold transition ${resultClass}">${escapeHtml(meaning)}</button>`;
-            })
-            .join("")}
-        </div>
-        ${state.wordQuizFeedback ? `<p class="mt-5 rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${escapeHtml(state.wordQuizFeedback)}</p>` : ""}
-        ${state.selectedWordChoice && currentWordSentence ? `
-          <div class="mt-5 space-y-3">
-            <p class="rounded-2xl bg-white p-4 text-lg font-bold text-slate-800 shadow-sm">예문 · ${escapeHtml(currentWordSentence.english)}</p>
-            <p class="rounded-2xl bg-white p-4 text-lg font-semibold text-slate-700 shadow-sm">${escapeHtml(currentWordSentence.korean)}</p>
-          </div>
-        ` : ""}
+        ` : `<div class="mt-8 rounded-2xl bg-white p-4 text-lg font-semibold text-slate-500 shadow-sm">뜻 준비중</div>`}
       </div>
     `
     : `
@@ -839,31 +978,31 @@ function render() {
       </div>
     `;
 
-  const sidebarItems = isWordQuizMode
-    ? state.wordQuizItems
+  const sidebarItems = wordQuizModeActive
+    ? getWordQuizItemsList()
         .map((item) => `
-          <button data-action="pick-word" data-word="${escapeHtml(item.word)}" class="w-full rounded-2xl p-3 text-left transition ${item.word === currentWordQuiz.word ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
+          <button data-action="pick-word" data-word="${escapeHtml(item.word)}" class="w-full rounded-2xl p-3 text-left transition ${item.word === currentWordQuiz.word ? "border-2 border-slate-900 bg-white text-slate-900" : item.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
             <div>
               <div class="flex items-center justify-between gap-2">
                 <span class="text-xs font-bold">#${item.id}</span>
                 <span class="text-xs">${item.mastered ? " 암기완료" : ""}</span>
               </div>
               <p class="mt-1 text-sm font-semibold">${escapeHtml(item.word)}</p>
-              <p class="mt-1 text-xs ${item.word === currentWordQuiz.word ? "text-slate-200" : "text-slate-500"}">${item.mastered ? "암기완료" : "준비됨"}</p>
+              <p class="mt-1 text-xs ${item.word === currentWordQuiz.word ? "text-slate-500" : item.mastered ? "text-emerald-700" : "text-slate-500"}">${item.mastered ? "암기완료" : "준비됨"}</p>
             </div>
           </button>
         `)
         .join("")
-    : state.sentences
+    : sentenceList
         .map((s) => `
-          <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === currentSentence.id ? "bg-slate-900 text-white" : "bg-slate-50 hover:bg-slate-100"}">
+          <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === currentSentence.id ? "border-2 border-slate-900 bg-white text-slate-900" : s.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
             <div class="${state.isEnglishVisible ? "" : "text-transparent select-none"}">
               <div class="flex items-center justify-between gap-2">
                 <span class="text-xs font-bold">#${s.id}</span>
                 <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 암기완료" : ""}</span>
               </div>
               <p class="mt-1 text-sm font-semibold">${s.english}</p>
-              <p class="mt-1 text-xs ${s.id === currentSentence.id ? "text-slate-200" : "text-slate-500"}">${s.korean}</p>
+              <p class="mt-1 text-xs ${s.id === currentSentence.id ? "text-slate-500" : s.mastered ? "text-emerald-700" : "text-slate-500"}">${s.korean}</p>
             </div>
           </button>
         `)
@@ -878,10 +1017,11 @@ function render() {
               <p class="text-sm font-semibold text-slate-500">Master English with 365 Sentences</p>
               <h1 class="text-2xl font-bold md:text-4xl">🎯 365문장으로 영어 마스터하기</h1>
             </div>
-            <div class="grid grid-cols-3 gap-2 md:min-w-[240px]">
-              <button data-action="set-mode-sentence" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}">문장<br />학습</button>
-              <button class="aspect-square rounded-2xl bg-slate-100 px-4 py-3 text-center text-sm font-bold text-slate-700 shadow-sm leading-tight">심화<br />학습</button>
-              <button data-action="set-mode-word-quiz" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-quiz" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"}">단어<br />퀴즈</button>
+            <div class="grid grid-cols-2 gap-2 md:min-w-[320px] md:grid-cols-4">
+              <button data-action="set-mode-sentence-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">기초<br />문장</button>
+              <button data-action="set-mode-sentence-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />문장</button>
+              <button data-action="set-mode-word-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">기초<br />단어</button>
+              <button data-action="set-mode-word-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />단어</button>
             </div>
           </div>
         </header>
@@ -921,7 +1061,7 @@ function render() {
   const cardAnswerInput = document.getElementById("card-answer-input");
   const englishDisplay = document.getElementById("english-display");
 
-  if (!isWordQuizMode && cardAnswerInput) {
+  if (!wordQuizModeActive && cardAnswerInput) {
     cardAnswerInput.addEventListener("paste", (e) => {
       e.preventDefault();
     });
@@ -974,11 +1114,11 @@ function render() {
   };
 
   const scrollCurrentItemToTop = (force = false) => {
-    const currentKey = isWordQuizMode ? currentWordQuiz.word : currentSentence.id;
+    const currentKey = wordQuizModeActive ? `${state.mode}:${currentWordQuiz.word}` : `${state.mode}:${currentSentence.id}`;
     if (!force && state.lastScrolledSentenceId === currentKey) return;
     const listWrap = document.getElementById("list-wrap");
     if (!listWrap) return;
-    const selector = isWordQuizMode
+    const selector = wordQuizModeActive
       ? `[data-word="${currentWordQuiz.word}"]`
       : `[data-sentence-id="${currentSentence.id}"]`;
     const activeItem = listWrap.querySelector(selector);
@@ -995,15 +1135,16 @@ function render() {
     scrollCurrentItemToTop(true);
   });
 
-  if (isWordQuizMode) {
+  if (wordQuizModeActive) {
     if (state.isListenOn) {
       speakWordQuizItem(currentWordQuiz);
     }
     return;
   }
 
-  if (!state.hasAutoSpokenOnFirstCard) {
-    state.hasAutoSpokenOnFirstCard = true;
+  const autoSpokenKey = state.mode === "sentence-advanced" ? "hasAutoSpokenOnFirstCardAdvanced" : "hasAutoSpokenOnFirstCardBasic";
+  if (!state[autoSpokenKey]) {
+    state[autoSpokenKey] = true;
     if (state.isListenOn) speak(currentSentence);
   }
 
