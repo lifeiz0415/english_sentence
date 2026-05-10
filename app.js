@@ -1250,7 +1250,7 @@ function buildLeftControlsMarkup(wordQuizModeActive, currentSentence, currentWor
 
 function buildRightControlsMarkup(wordQuizModeActive) {
   return `
-    ${wordQuizModeActive || isAdvancedSentenceMode() ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "연속" : "수동"}</button>`}
+    ${wordQuizModeActive || isAdvancedSentenceMode() ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "연속재생" : "수동재생"}</button>`}
     <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isRandomOn ? "랜덤" : "순차"}</button>
     <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isListenOn ? "듣기" : "조용"}</button>
   `;
