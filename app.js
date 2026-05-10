@@ -358,7 +358,6 @@ const state = {
   advancedIndex: 0,
   answer: "",
   feedback: "",
-  isEnglishVisible: true,
   lastScrolledSentenceId: null,
   hasAutoSpokenOnFirstCardBasic: false,
   hasAutoSpokenOnFirstCardAdvanced: false,
@@ -378,6 +377,7 @@ const state = {
   wordQuizFeedback: "",
   selectedWordChoice: "",
   wordQuizAnsweredCorrectly: false,
+  shouldSpeakWordQuizAfterRender: false,
   wordQuizChoiceMap: {},
   wordQuizAdvanceTimerId: null,
   advancedMaskedSentenceId: null,
@@ -488,15 +488,8 @@ function clearAdvancedRevealTimer() {
   }
 }
 
-function isSentenceEnglishVisible() {
-  return !isAdvancedSentenceMode() || state.isEnglishVisible;
-}
-
 function getSentenceDisplayMarkup(current, typedText = state.answer) {
   if (!current) return "";
-  if (!isSentenceEnglishVisible()) {
-    return '<span class="text-slate-300">문장이 숨겨져 있습니다.</span>';
-  }
   if (isAdvancedSentenceMode()) {
     return buildAdvancedTypingMarkup(current.english, typedText, getAdvancedMaskedRanges(current), state.advancedRevealAnswers);
   }
@@ -505,7 +498,7 @@ function getSentenceDisplayMarkup(current, typedText = state.answer) {
 
 function getSidebarSentenceText(sentence, currentSentence) {
   if (!sentence) return "";
-  if (!isAdvancedSentenceMode() || !isSentenceEnglishVisible() || sentence.id !== currentSentence?.id) {
+  if (!isAdvancedSentenceMode() || sentence.id !== currentSentence?.id) {
     return sentence.english;
   }
   return buildMaskedSentenceText(sentence.english, getAdvancedMaskedRanges(currentSentence));
@@ -791,12 +784,11 @@ function cancelTypingRaf() {
   }
 }
 
-function scheduleTypingHighlightUpdate(englishDisplay, current) {
-  if (!isSentenceEnglishVisible()) return;
-  if (!englishDisplay || !current) return;
+function scheduleTypingHighlightUpdate(englishDisplayText, current) {
+  if (!englishDisplayText || !current) return;
   cancelTypingRaf();
   state.typingRafId = window.requestAnimationFrame(() => {
-    englishDisplay.innerHTML = getSentenceDisplayMarkup(current, state.answer);
+    englishDisplayText.innerHTML = getSentenceDisplayMarkup(current, state.answer);
     state.typingRafId = null;
   });
 }
@@ -873,6 +865,20 @@ function speak(current, options = {}) {
     console.warn("Speech playback is unavailable in this browser context", error);
     clearSpeechFallbackTimer();
     if (typeof onComplete === "function") onComplete();
+  }
+}
+
+function speakEnglishOnly(current) {
+  if (!current || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === "undefined") return;
+  try {
+    window.speechSynthesis.cancel();
+    clearSpeechFallbackTimer();
+    const englishUtterance = new window.SpeechSynthesisUtterance(current.english);
+    englishUtterance.lang = "en-US";
+    englishUtterance.rate = 0.85;
+    window.speechSynthesis.speak(englishUtterance);
+  } catch (error) {
+    console.warn("English-only speech playback is unavailable in this browser context", error);
   }
 }
 
@@ -971,6 +977,34 @@ function speakWordQuizItem(item) {
   }
 }
 
+function playWordQuizWrongBeep() {
+  try {
+    const AudioContextClass = window.AudioContext || window["webkitAudioContext"];
+    if (!AudioContextClass) return;
+    const audioContext = new AudioContextClass();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(392, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.09, audioContext.currentTime + 0.015);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.32);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.32);
+    oscillator.onended = () => {
+      if (typeof audioContext.close === "function") {
+        audioContext.close().catch(() => {});
+      }
+    };
+  } catch (error) {
+    console.warn("Word quiz wrong-answer beep is unavailable in this browser context", error);
+  }
+}
+
 function handleWordQuizAnswer(choice) {
   const current = getCurrentWordQuizItem();
   if (!current) return;
@@ -982,12 +1016,15 @@ function handleWordQuizAnswer(choice) {
   if (choice !== current.meaning) {
     state.wordQuizFeedback = "";
     state.wordQuizAnsweredCorrectly = false;
+    state.shouldSpeakWordQuizAfterRender = false;
+    playWordQuizWrongBeep();
     render();
     return;
   }
 
   state.wordQuizFeedback = "정답!";
   state.wordQuizAnsweredCorrectly = true;
+  state.shouldSpeakWordQuizAfterRender = true;
   if (state.isRandomOn) {
     const pool = getActiveWordQuizItems();
     if (pool.length > 0) {
@@ -998,6 +1035,7 @@ function handleWordQuizAnswer(choice) {
       state.wordQuizAdvanceTimerId = window.setTimeout(() => {
         updateWordQuizCurrent({ mastered: true }, current);
         safeSetWordQuizIndex(nextWord, false);
+        state.shouldSpeakWordQuizAfterRender = true;
         state.wordQuizAdvanceTimerId = null;
         render();
       }, 1000);
@@ -1006,6 +1044,7 @@ function handleWordQuizAnswer(choice) {
     state.wordQuizAdvanceTimerId = window.setTimeout(() => {
       updateWordQuizCurrent({ mastered: true }, current);
       safeSetWordQuizIndex(1, true);
+      state.shouldSpeakWordQuizAfterRender = true;
       state.wordQuizAdvanceTimerId = null;
       render();
     }, 1000);
@@ -1077,8 +1116,8 @@ function handleActionClick(el) {
     state.wordQuizFeedback = "";
     state.selectedWordChoice = "";
     state.wordQuizAnsweredCorrectly = false;
+    state.shouldSpeakWordQuizAfterRender = isWordQuizMode();
     state.wordQuizChoiceMap = {};
-    state.isEnglishVisible = state.mode === "sentence-advanced";
     state.advancedMaskedSentenceId = null;
     state.advancedMaskedRanges = [];
     state.advancedRevealAnswers = false;
@@ -1088,16 +1127,16 @@ function handleActionClick(el) {
   }
 
   switch (action) {
-    case "toggle-english-visible":
-      state.isEnglishVisible = !state.isEnglishVisible;
-      state.answer = "";
-      state.feedback = "";
-      state.advancedRevealAnswers = false;
-      state.shouldRefocusCardInput = true;
-      break;
     case "toggle-listen":
       toggleListen();
       break;
+    case "replay-english": {
+      const currentSentence = getCurrent();
+      if (currentSentence) {
+        speakEnglishOnly(currentSentence);
+      }
+      return;
+    }
     case "toggle-random":
       state.isRandomOn = !state.isRandomOn;
       break;
@@ -1123,7 +1162,7 @@ function handleActionClick(el) {
         } else {
           safeSetWordQuizIndex(1, true);
         }
-      } else if (isAdvancedSentenceMode() && isSentenceEnglishVisible()) {
+      } else if (isAdvancedSentenceMode()) {
         const currentSentence = getCurrent();
         if (!currentSentence) break;
         state.advancedRevealAnswers = true;
@@ -1212,22 +1251,20 @@ function render() {
   const hasWordQuizMeaning = wordQuizModeActive ? Boolean(currentWordQuiz.meaning) : false;
   const wordQuizChoices = wordQuizModeActive && hasWordQuizMeaning ? getWordQuizChoices(currentWordQuiz) : [];
   const showSentencePronunciations = !wordQuizModeActive && !isAdvancedSentenceMode();
-  const sentenceEnglishVisible = isSentenceEnglishVisible();
+  const previousButtonLabel = wordQuizModeActive ? "이전단어" : "이전문장";
+  const nextButtonLabel = wordQuizModeActive ? "다음단어" : "다음문장";
 
   const leftControls = wordQuizModeActive
     ? `
       <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getWordQuizModeLabel()} #${currentWordQuiz.id}</span>
-      <button data-action="reset-progress" class="rounded-2xl px-4 py-2 text-sm font-bold transition bg-slate-100 text-slate-900 shadow-sm hover:bg-slate-900 hover:text-white">진도초기화</button>
     `
     : `
       <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getSentenceModeLabel()} #${currentSentence.id}</span>
-      <button data-action="reset-progress" class="rounded-2xl px-4 py-2 text-sm font-bold transition bg-slate-100 text-slate-900 shadow-sm hover:bg-slate-900 hover:text-white">진도초기화</button>
       ${currentSentence.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
     `;
 
   const rightControls = `
-    ${state.mode === "sentence-advanced" ? `<button data-action="toggle-english-visible" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isEnglishVisible ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isEnglishVisible ? "문장 보임" : "문장 숨김"}</button>` : ""}
-    ${wordQuizModeActive ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
+    ${wordQuizModeActive || isAdvancedSentenceMode() ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
     <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
     <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
   `;
@@ -1259,9 +1296,12 @@ function render() {
     : `
       <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
         <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
-          <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${getSentenceDisplayMarkup(currentSentence, state.answer)}</p>
+          <div class="flex min-h-[120px] flex-col justify-between gap-3 md:min-h-[144px]">
+            <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl"><span id="english-display-text">${getSentenceDisplayMarkup(currentSentence, state.answer)}</span></p>
+            ${isAdvancedSentenceMode() ? `<div class="flex justify-end"><button data-action="replay-english" class="inline-flex items-center gap-2 rounded-full bg-transparent px-3 py-2 text-sm font-semibold leading-none text-slate-500 shadow-none transition hover:bg-white/90 hover:text-slate-900 hover:shadow-sm" title="영어 다시 듣기" aria-label="영어 다시 듣기">🔊 <span>다시듣기</span></button></div>` : ""}
+          </div>
         </div>
-        ${showSentencePronunciations ? `<div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5"><div class="flex flex-wrap gap-2 ${sentenceEnglishVisible ? "" : "opacity-0 select-none"}">${buildPronunciationMarkup(currentSentence.english)}</div></div>` : ""}
+        ${showSentencePronunciations ? `<div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5"><div class="flex flex-wrap gap-2">${buildPronunciationMarkup(currentSentence.english)}</div></div>` : ""}
         <div class="mt-8 space-y-5">
           <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${currentSentence.korean}</p>
           <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="${isAdvancedSentenceMode() ? "가려진 단어를 유추해 전체 영어 문장을 완성하세요" : "영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다"}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
@@ -1288,7 +1328,7 @@ function render() {
     : sentenceList
         .map((s) => `
           <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === currentSentence.id ? "border-2 border-slate-900 bg-white text-slate-900" : s.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
-            <div class="${sentenceEnglishVisible ? "" : "text-transparent select-none"}">
+            <div>
               <div class="flex items-center justify-between gap-2">
                 <span class="text-xs font-bold">#${s.id}</span>
                 <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 암기완료" : ""}</span>
@@ -1325,9 +1365,9 @@ function render() {
             </div>
             ${mainContent}
             <div class="mt-5 flex flex-wrap justify-between gap-2">
-              <button data-action="prev" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">이전</button>
+              <button data-action="prev" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">${previousButtonLabel}</button>
               <div class="flex gap-2"></div>
-              <button data-action="next" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">다음</button>
+              <button data-action="next" class="rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 shadow-sm hover:bg-slate-100">${nextButtonLabel}</button>
             </div>
           </main>
 
@@ -1336,7 +1376,7 @@ function render() {
               <div class="grid grid-cols-3 gap-2">
                 <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${progressSource.length}</div></div>
                 <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
-                <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">진도</div><div class="text-xl font-extrabold">${progress}%</div></div>
+                <button data-action="reset-progress" class="group rounded-2xl bg-slate-100 px-3 py-3 text-center transition text-slate-900 hover:bg-slate-900 hover:text-white"><div class="group-hover:hidden"><div class="text-xs font-semibold">진도/초기화</div><div class="text-xl font-extrabold">${progress}%</div></div><div class="hidden group-hover:block"><div class="text-xs font-semibold">진도</div><div class="text-sm font-bold leading-tight">초기화</div></div></button>
               </div>
               <div class="h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
             </div>
@@ -1350,7 +1390,7 @@ function render() {
   `;
 
   const cardAnswerInput = document.getElementById("card-answer-input");
-  const englishDisplay = document.getElementById("english-display");
+  const englishDisplayText = document.getElementById("english-display-text");
 
   if (!wordQuizModeActive && cardAnswerInput) {
     cardAnswerInput.addEventListener("paste", (e) => {
@@ -1364,7 +1404,7 @@ function render() {
     cardAnswerInput.addEventListener("compositionend", (e) => {
       state.isComposing = false;
       state.answer = e.target.value;
-      scheduleTypingHighlightUpdate(englishDisplay, currentSentence);
+      scheduleTypingHighlightUpdate(englishDisplayText, currentSentence);
       const didAdvance = checkCardTypingAndAdvance(currentSentence);
       if (didAdvance) {
         render();
@@ -1375,7 +1415,7 @@ function render() {
     cardAnswerInput.addEventListener("input", (e) => {
       state.answer = e.target.value;
       if (!state.isComposing) {
-        scheduleTypingHighlightUpdate(englishDisplay, currentSentence);
+        scheduleTypingHighlightUpdate(englishDisplayText, currentSentence);
       }
       const didAdvance = checkCardTypingAndAdvance(currentSentence);
       if (didAdvance) {
@@ -1427,9 +1467,10 @@ function render() {
   });
 
   if (wordQuizModeActive) {
-    if (state.isListenOn) {
+    if (state.isListenOn && state.shouldSpeakWordQuizAfterRender) {
       speakWordQuizItem(currentWordQuiz);
     }
+    state.shouldSpeakWordQuizAfterRender = false;
     return;
   }
 
