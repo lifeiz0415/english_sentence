@@ -81,6 +81,224 @@ function buildTypingMarkup(targetText, typedText) {
   return pieces.join("");
 }
 
+const ADVANCED_BLANK_STOPWORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "been",
+  "being",
+  "but",
+  "by",
+  "do",
+  "does",
+  "for",
+  "from",
+  "had",
+  "has",
+  "have",
+  "he",
+  "her",
+  "hers",
+  "him",
+  "his",
+  "i",
+  "in",
+  "is",
+  "it",
+  "its",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "our",
+  "ours",
+  "she",
+  "so",
+  "than",
+  "that",
+  "the",
+  "their",
+  "theirs",
+  "them",
+  "there",
+  "they",
+  "this",
+  "to",
+  "us",
+  "was",
+  "we",
+  "were",
+  "will",
+  "with",
+  "you",
+  "your",
+  "yours",
+]);
+
+const LIKELY_VERB_WORDS = new Set([
+  "accept", "add", "agree", "answer", "appear", "arrive", "ask", "become", "begin", "believe", "bring", "build", "buy", "call", "change", "choose", "come", "consider", "continue", "create", "decide", "develop", "do", "earn", "eat", "enjoy", "expect", "explain", "feel", "find", "finish", "follow", "forget", "gain", "get", "give", "go", "grow", "happen", "have", "hear", "help", "hold", "improve", "include", "keep", "know", "learn", "leave", "let", "like", "live", "look", "lose", "love", "make", "mean", "meet", "move", "need", "open", "pay", "play", "put", "read", "receive", "remember", "respect", "run", "say", "see", "seem", "sell", "send", "show", "speak", "spend", "start", "stay", "stop", "study", "support", "take", "teach", "tell", "think", "try", "turn", "understand", "use", "visit", "wait", "walk", "want", "watch", "win", "work", "write",
+]);
+
+function isAdvancedSentenceMode() {
+  return state.mode === "sentence-advanced";
+}
+
+function isAdvancedBlankCandidate(word) {
+  const normalized = String(word || "").toLowerCase().replace(/[^a-z']/g, "");
+  if (!normalized) return false;
+  if (normalized.length <= 3) return false;
+  return !ADVANCED_BLANK_STOPWORDS.has(normalized);
+}
+
+function isLikelyVerb(word) {
+  const normalized = String(word || "").toLowerCase().replace(/[^a-z']/g, "");
+  if (!normalized) return false;
+  if (LIKELY_VERB_WORDS.has(normalized)) return true;
+  if (/(ed|ing|en|ify|ise|ize)$/.test(normalized)) return true;
+  if (/('ll|'d|'ve)$/.test(normalized)) return true;
+  return false;
+}
+
+function isMaskedIndex(index, maskedRanges) {
+  return maskedRanges.some((range) => index >= range.start && index < range.end);
+}
+
+function getMaskedRangeAtIndex(index, maskedRanges) {
+  return maskedRanges.find((range) => index >= range.start && index < range.end) || null;
+}
+
+function buildMaskedUnderscoreSlot() {
+  return '<span class="inline-block min-w-[0.62em] px-[0.02em] text-center tracking-[0.08em] text-slate-300">_</span>';
+}
+
+function getSentenceWordMatches(sentence) {
+  return Array.from(String(sentence || "").matchAll(/[A-Za-z]+(?:[''][A-Za-z]+)?/g)).map((match, tokenIndex) => ({
+    word: match[0],
+    start: match.index,
+    end: match.index + match[0].length,
+    tokenIndex,
+  }));
+}
+
+function shuffleArray(values) {
+  const next = [...values];
+  for (let index = next.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+  }
+  return next;
+}
+
+function selectAdvancedMaskedRanges(sentence) {
+  const matches = getSentenceWordMatches(sentence);
+  const preferred = matches.filter((match) => isAdvancedBlankCandidate(match.word));
+  const fallback = matches.filter((match) => String(match.word || "").length > 3);
+  const candidates = preferred.length > 0 ? preferred : fallback;
+  if (candidates.length === 0) return [];
+
+  const desiredCount = Math.min(2, candidates.length || matches.length);
+  const verbCandidates = candidates.filter((match) => isLikelyVerb(match.word));
+  const basePool = candidates.length > 0 ? candidates : matches;
+  const selected = [];
+
+  if (verbCandidates.length > 0) {
+    selected.push(shuffleArray(verbCandidates)[0]);
+  }
+
+  for (const candidate of shuffleArray(basePool)) {
+    if (selected.length >= desiredCount) break;
+    if (selected.some((item) => item.start === candidate.start && item.end === candidate.end)) continue;
+    const isAdjacent = selected.some((item) => Math.abs(item.tokenIndex - candidate.tokenIndex) <= 1);
+    if (isAdjacent && basePool.length > desiredCount) continue;
+    selected.push(candidate);
+  }
+
+  if (selected.length < desiredCount) {
+    for (const candidate of shuffleArray(basePool)) {
+      if (selected.length >= desiredCount) break;
+      if (selected.some((item) => item.start === candidate.start && item.end === candidate.end)) continue;
+      selected.push(candidate);
+    }
+  }
+
+  return selected
+    .map(({ start, end }) => ({ start, end }))
+    .sort((left, right) => left.start - right.start);
+}
+
+function buildMaskedSentenceText(targetText, maskedRanges) {
+  const target = String(targetText || "");
+  const pieces = [];
+  for (let index = 0; index < target.length; index += 1) {
+    const character = target[index];
+    const maskedRange = getMaskedRangeAtIndex(index, maskedRanges);
+    if (!maskedRange) {
+      pieces.push(escapeHtml(character));
+      continue;
+    }
+    if (index === maskedRange.start) {
+      pieces.push(`<span class="text-slate-400">${escapeHtml(character)}</span>`);
+    } else {
+      pieces.push(buildMaskedUnderscoreSlot());
+    }
+  }
+  return pieces.join("");
+}
+
+function buildAdvancedTypingMarkup(targetText, typedText, maskedRanges, revealMaskedAnswers = false) {
+  const target = String(targetText || "");
+  const typed = String(typedText || "");
+  const pieces = [];
+  const max = Math.max(target.length, typed.length);
+
+  for (let index = 0; index < max; index += 1) {
+    const targetCharacter = target[index];
+    const typedCharacter = typed[index];
+    const isMasked = isMaskedIndex(index, maskedRanges);
+
+    if (targetCharacter == null && typedCharacter != null) {
+      continue;
+    }
+
+    if (revealMaskedAnswers && isMasked) {
+      pieces.push(`<span class="text-emerald-600">${escapeHtml(targetCharacter || "")}</span>`);
+      continue;
+    }
+
+    if (targetCharacter != null && typedCharacter == null) {
+      if (isMasked) {
+        const maskedRange = getMaskedRangeAtIndex(index, maskedRanges);
+        if (maskedRange && index === maskedRange.start) {
+          pieces.push(`<span class="text-slate-400">${escapeHtml(targetCharacter)}</span>`);
+        } else {
+          pieces.push(buildMaskedUnderscoreSlot());
+        }
+      } else {
+        pieces.push(`<span class="text-slate-900">${escapeHtml(targetCharacter)}</span>`);
+      }
+      continue;
+    }
+
+    if (targetCharacter === typedCharacter) {
+      pieces.push(`<span class="text-emerald-600">${escapeHtml(targetCharacter)}</span>`);
+      continue;
+    }
+
+    if (isMasked) {
+      pieces.push(`<span class="bg-red-100 text-red-600">${escapeHtml(typedCharacter || "_")}</span>`);
+    } else {
+      pieces.push(`<span class="bg-red-100 text-red-600">${escapeHtml(targetCharacter)}</span>`);
+    }
+  }
+
+  return pieces.join("");
+}
+
 let PRONUNCIATION_MAP = {};
 let BASIC_WORD_QUIZ_DATA = [];
 let ADVANCED_WORD_QUIZ_DATA = [];
@@ -162,6 +380,10 @@ const state = {
   wordQuizAnsweredCorrectly: false,
   wordQuizChoiceMap: {},
   wordQuizAdvanceTimerId: null,
+  advancedMaskedSentenceId: null,
+  advancedMaskedRanges: [],
+  advancedRevealAnswers: false,
+  advancedRevealTimerId: null,
 };
 
 function mergeSavedProgress(defaultSentences, savedSentences) {
@@ -250,6 +472,45 @@ function getWordQuizModeLabel() {
   return state.mode === "word-advanced" ? "심화" : "빈출단어";
 }
 
+function getAdvancedMaskedRanges(current) {
+  if (!isAdvancedSentenceMode() || !current) return [];
+  if (state.advancedMaskedSentenceId !== current.id) {
+    state.advancedMaskedSentenceId = current.id;
+    state.advancedMaskedRanges = selectAdvancedMaskedRanges(current.english);
+  }
+  return state.advancedMaskedRanges;
+}
+
+function clearAdvancedRevealTimer() {
+  if (state.advancedRevealTimerId) {
+    window.clearTimeout(state.advancedRevealTimerId);
+    state.advancedRevealTimerId = null;
+  }
+}
+
+function isSentenceEnglishVisible() {
+  return !isAdvancedSentenceMode() || state.isEnglishVisible;
+}
+
+function getSentenceDisplayMarkup(current, typedText = state.answer) {
+  if (!current) return "";
+  if (!isSentenceEnglishVisible()) {
+    return '<span class="text-slate-300">문장이 숨겨져 있습니다.</span>';
+  }
+  if (isAdvancedSentenceMode()) {
+    return buildAdvancedTypingMarkup(current.english, typedText, getAdvancedMaskedRanges(current), state.advancedRevealAnswers);
+  }
+  return buildTypingMarkup(current.english, typedText);
+}
+
+function getSidebarSentenceText(sentence, currentSentence) {
+  if (!sentence) return "";
+  if (!isAdvancedSentenceMode() || !isSentenceEnglishVisible() || sentence.id !== currentSentence?.id) {
+    return sentence.english;
+  }
+  return buildMaskedSentenceText(sentence.english, getAdvancedMaskedRanges(currentSentence));
+}
+
 function getSentenceProgressList() {
   return state.mode === "sentence-advanced" ? state.advancedSentences : state.basicSentences;
 }
@@ -308,9 +569,6 @@ function setWordQuizIndex(nextIndex) {
 
 function buildWordQuizItems(items) {
   return items.map((item, index) => {
-    const escapedWord = item.word.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
-    const matchingSentence = state.basicSentences.find((sentence) => new RegExp(`\\b${escapedWord}\\b`, "i").test(sentence.english));
-
     return {
       id: index + 1,
       word: String(item.word || "").toLowerCase(),
@@ -368,7 +626,7 @@ function initializeSentences() {
     const unmastered = state.basicSentences.filter((s) => !s.mastered);
     const initialPool = unmastered.length > 0 ? unmastered : state.basicSentences;
     const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
-    state.basicIndex = state.basicSentences.findIndex((s) => s.id === initial.id);
+    state.basicIndex = initial.id;
   }
 
   state.advancedSentences = loadSentences(ADVANCED_SENTENCE_STORAGE_KEY);
@@ -376,7 +634,7 @@ function initializeSentences() {
     const unmastered = state.advancedSentences.filter((s) => !s.mastered);
     const initialPool = unmastered.length > 0 ? unmastered : state.advancedSentences;
     const initial = initialPool[Math.floor(Math.random() * initialPool.length)];
-    state.advancedIndex = state.advancedSentences.findIndex((s) => s.id === initial.id);
+    state.advancedIndex = initial.id;
   }
 
   state.mode = "word-basic";
@@ -463,6 +721,10 @@ function safeSetIndex(nextIdOrOffset, useOffset = true) {
 
   state.answer = "";
   state.feedback = "";
+  state.advancedMaskedSentenceId = null;
+  state.advancedMaskedRanges = [];
+  state.advancedRevealAnswers = false;
+  clearAdvancedRevealTimer();
 }
 
 function safeSetWordQuizIndex(nextWordOrOffset, useOffset = true) {
@@ -530,11 +792,11 @@ function cancelTypingRaf() {
 }
 
 function scheduleTypingHighlightUpdate(englishDisplay, current) {
-  if (!state.isEnglishVisible) return;
+  if (!isSentenceEnglishVisible()) return;
   if (!englishDisplay || !current) return;
   cancelTypingRaf();
   state.typingRafId = window.requestAnimationFrame(() => {
-    englishDisplay.innerHTML = buildTypingMarkup(current.english, state.answer);
+    englishDisplay.innerHTML = getSentenceDisplayMarkup(current, state.answer);
     state.typingRafId = null;
   });
 }
@@ -781,6 +1043,8 @@ function resetProgress() {
   setSentenceIndex(0);
   state.answer = "";
   state.feedback = "";
+  state.advancedRevealAnswers = false;
+  clearAdvancedRevealTimer();
   persist();
 }
 
@@ -804,6 +1068,7 @@ function handleActionClick(el) {
     stopAutoplay();
   }
   clearWordQuizAdvanceTimer();
+  clearAdvancedRevealTimer();
 
   if (action.startsWith("set-mode-")) {
     state.mode = action.replace("set-mode-", "");
@@ -813,6 +1078,10 @@ function handleActionClick(el) {
     state.selectedWordChoice = "";
     state.wordQuizAnsweredCorrectly = false;
     state.wordQuizChoiceMap = {};
+    state.isEnglishVisible = state.mode === "sentence-advanced";
+    state.advancedMaskedSentenceId = null;
+    state.advancedMaskedRanges = [];
+    state.advancedRevealAnswers = false;
     state.shouldRefocusCardInput = isSentenceMode();
     render();
     return;
@@ -823,6 +1092,7 @@ function handleActionClick(el) {
       state.isEnglishVisible = !state.isEnglishVisible;
       state.answer = "";
       state.feedback = "";
+      state.advancedRevealAnswers = false;
       state.shouldRefocusCardInput = true;
       break;
     case "toggle-listen":
@@ -853,6 +1123,18 @@ function handleActionClick(el) {
         } else {
           safeSetWordQuizIndex(1, true);
         }
+      } else if (isAdvancedSentenceMode() && isSentenceEnglishVisible()) {
+        state.advancedRevealAnswers = true;
+        render();
+        state.advancedRevealTimerId = window.setTimeout(() => {
+          if (state.isRandomOn) {
+            safeSetIndex(getAdvanceIndex(), false);
+          } else {
+            safeSetIndex(1, true);
+          }
+          state.advancedRevealTimerId = null;
+          render();
+        }, 2000);
       } else if (state.isRandomOn) {
         safeSetIndex(getAdvanceIndex(), false);
       } else {
@@ -919,6 +1201,8 @@ function render() {
   const progress = progressSource.length ? Math.round((masteredCount / progressSource.length) * 100) : 0;
   const hasWordQuizMeaning = wordQuizModeActive ? Boolean(currentWordQuiz.meaning) : false;
   const wordQuizChoices = wordQuizModeActive && hasWordQuizMeaning ? getWordQuizChoices(currentWordQuiz) : [];
+  const showSentencePronunciations = !wordQuizModeActive && !isAdvancedSentenceMode();
+  const sentenceEnglishVisible = isSentenceEnglishVisible();
 
   const leftControls = wordQuizModeActive
     ? `
@@ -965,14 +1249,12 @@ function render() {
     : `
       <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
         <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
-          <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${state.isEnglishVisible ? buildTypingMarkup(currentSentence.english, state.answer) : '<span class="text-slate-300">문장이 숨겨져 있습니다.</span>'}</p>
+          <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${getSentenceDisplayMarkup(currentSentence, state.answer)}</p>
         </div>
-        <div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5">
-          <div class="flex flex-wrap gap-2 ${state.isEnglishVisible ? "" : "opacity-0 select-none"}">${buildPronunciationMarkup(currentSentence.english)}</div>
-        </div>
+        ${showSentencePronunciations ? `<div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5"><div class="flex flex-wrap gap-2 ${sentenceEnglishVisible ? "" : "opacity-0 select-none"}">${buildPronunciationMarkup(currentSentence.english)}</div></div>` : ""}
         <div class="mt-8 space-y-5">
           <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${currentSentence.korean}</p>
-          <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
+          <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="${isAdvancedSentenceMode() ? "가려진 단어를 유추해 전체 영어 문장을 완성하세요" : "영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다"}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
           ${state.feedback ? `<p class="rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${state.feedback}</p>` : ""}
         </div>
       </div>
@@ -996,12 +1278,12 @@ function render() {
     : sentenceList
         .map((s) => `
           <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === currentSentence.id ? "border-2 border-slate-900 bg-white text-slate-900" : s.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
-            <div class="${state.isEnglishVisible ? "" : "text-transparent select-none"}">
+            <div class="${sentenceEnglishVisible ? "" : "text-transparent select-none"}">
               <div class="flex items-center justify-between gap-2">
                 <span class="text-xs font-bold">#${s.id}</span>
                 <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 암기완료" : ""}</span>
               </div>
-              <p class="mt-1 text-sm font-semibold">${s.english}</p>
+              <p class="mt-1 text-sm font-semibold">${getSidebarSentenceText(s, currentSentence)}</p>
               <p class="mt-1 text-xs ${s.id === currentSentence.id ? "text-slate-500" : s.mastered ? "text-emerald-700" : "text-slate-500"}">${s.korean}</p>
             </div>
           </button>
