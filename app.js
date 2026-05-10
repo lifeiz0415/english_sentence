@@ -23,20 +23,6 @@ function parseLines(lines) {
     .filter((item) => item.english && item.korean);
 }
 
-function stripPeriodsFromSentences(items) {
-  if (!Array.isArray(items)) return [];
-
-  return items
-    .map((item, index) => ({
-      id: Number(item?.id) || index + 1,
-      english: normalizeEnglishSentence(item?.english),
-      korean: String(item?.korean || "").trim(),
-      mastered: Boolean(item?.mastered),
-      starred: Boolean(item?.starred),
-    }))
-    .filter((item) => item.english && item.korean);
-}
-
 function normalize(text) {
   return String(text)
     .toLowerCase()
@@ -469,7 +455,7 @@ function getSentenceModeLabel() {
 }
 
 function getWordQuizModeLabel() {
-  return state.mode === "word-advanced" ? "심화" : "빈출단어";
+  return state.mode === "word-advanced" ? "추가단어" : "빈출단어";
 }
 
 function getAdvancedMaskedRanges(current) {
@@ -1231,6 +1217,151 @@ function handleActionClick(el) {
   render();
 }
 
+function getProgressStats(items) {
+  const masteredCount = items.filter((item) => item.mastered).length;
+  const progress = items.length ? Math.round((masteredCount / items.length) * 100) : 0;
+  return { masteredCount, progress };
+}
+
+function buildLeftControlsMarkup(wordQuizModeActive, currentSentence, currentWordQuiz) {
+  if (wordQuizModeActive) {
+    return `
+      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getWordQuizModeLabel()} #${currentWordQuiz.id}</span>
+    `;
+  }
+
+  return `
+    <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getSentenceModeLabel()} #${currentSentence.id}</span>
+    ${currentSentence.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
+  `;
+}
+
+function buildRightControlsMarkup(wordQuizModeActive) {
+  return `
+    ${wordQuizModeActive || isAdvancedSentenceMode() ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
+    <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
+    <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
+  `;
+}
+
+function getWordQuizChoiceButtonClass(meaning, correctMeaning) {
+  const isSelected = state.selectedWordChoice === meaning;
+  const isCorrect = meaning === correctMeaning;
+
+  if (isSelected) {
+    return isCorrect
+      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+      : "bg-rose-100 text-rose-800 border-rose-300";
+  }
+
+  return "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
+}
+
+function buildWordQuizChoicesMarkup(currentWordQuiz, wordQuizChoices) {
+  return wordQuizChoices
+    .map((meaning) => `<button data-action="answer-word-quiz" data-meaning="${escapeHtml(meaning)}" class="rounded-2xl border p-4 text-left text-lg font-bold transition ${getWordQuizChoiceButtonClass(meaning, currentWordQuiz.meaning)}">${escapeHtml(meaning)}</button>`)
+    .join("");
+}
+
+function buildWordQuizMainContent(currentWordQuiz, hasWordQuizMeaning, wordQuizChoices) {
+  return `
+    <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
+      <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
+        <p class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${escapeHtml(currentWordQuiz.word)}</p>
+      </div>
+      ${hasWordQuizMeaning ? `
+        <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+          ${buildWordQuizChoicesMarkup(currentWordQuiz, wordQuizChoices)}
+        </div>
+      ` : `<div class="mt-8 rounded-2xl bg-white p-4 text-lg font-semibold text-slate-500 shadow-sm">뜻 준비중</div>`}
+    </div>
+  `;
+}
+
+function buildAdvancedReplayButtonMarkup() {
+  if (!isAdvancedSentenceMode()) return "";
+
+  return `<div class="flex justify-end"><button data-action="replay-english" class="inline-flex items-center gap-2 rounded-full bg-transparent px-3 py-2 text-sm font-semibold leading-none text-slate-500 shadow-none transition hover:bg-white/90 hover:text-slate-900 hover:shadow-sm" title="영어 다시 듣기" aria-label="영어 다시 듣기">🔊 <span>다시듣기</span></button></div>`;
+}
+
+function buildSentenceMainContent(currentSentence, showSentencePronunciations) {
+  return `
+    <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
+      <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
+        <div class="flex min-h-[120px] flex-col justify-between gap-3 md:min-h-[144px]">
+          <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl"><span id="english-display-text">${getSentenceDisplayMarkup(currentSentence, state.answer)}</span></p>
+          ${buildAdvancedReplayButtonMarkup()}
+        </div>
+      </div>
+      ${showSentencePronunciations ? `<div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5"><div class="flex flex-wrap gap-2">${buildPronunciationMarkup(currentSentence.english)}</div></div>` : ""}
+      <div class="mt-8 space-y-5">
+        <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${currentSentence.korean}</p>
+        <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="${isAdvancedSentenceMode() ? "가려진 단어를 유추해 전체 영어 문장을 완성하세요" : "영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다"}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
+        ${state.feedback ? `<p class="rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${state.feedback}</p>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function buildWordQuizSidebarItems(currentWordQuiz) {
+  return getWordQuizItemsList()
+    .map((item) => `
+      <button data-action="pick-word" data-word="${escapeHtml(item.word)}" class="w-full rounded-2xl p-3 text-left transition ${item.word === currentWordQuiz.word ? "border-2 border-slate-900 bg-white text-slate-900" : item.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
+        <div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-bold">#${item.id}</span>
+            <span class="text-xs">${item.mastered ? " 암기완료" : ""}</span>
+          </div>
+          <p class="mt-1 text-sm font-semibold">${escapeHtml(item.word)}</p>
+          <p class="mt-1 text-xs ${item.word === currentWordQuiz.word ? "text-slate-500" : item.mastered ? "text-emerald-700" : "text-slate-500"}">${item.mastered ? "암기완료" : "준비됨"}</p>
+        </div>
+      </button>
+    `)
+    .join("");
+}
+
+function buildSentenceSidebarItems(sentenceList, currentSentence) {
+  return sentenceList
+    .map((sentence) => `
+      <button data-action="pick" data-sentence-id="${sentence.id}" class="w-full rounded-2xl p-3 text-left transition ${sentence.id === currentSentence.id ? "border-2 border-slate-900 bg-white text-slate-900" : sentence.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
+        <div>
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-bold">#${sentence.id}</span>
+            <span class="text-xs">${sentence.starred ? "★" : ""}${sentence.mastered ? " 암기완료" : ""}</span>
+          </div>
+          <p class="mt-1 text-sm font-semibold">${getSidebarSentenceText(sentence, currentSentence)}</p>
+          <p class="mt-1 text-xs ${sentence.id === currentSentence.id ? "text-slate-500" : sentence.mastered ? "text-emerald-700" : "text-slate-500"}">${sentence.korean}</p>
+        </div>
+      </button>
+    `)
+    .join("");
+}
+
+function buildSidebarItemsMarkup(wordQuizModeActive, sentenceList, currentSentence, currentWordQuiz) {
+  return wordQuizModeActive
+    ? buildWordQuizSidebarItems(currentWordQuiz)
+    : buildSentenceSidebarItems(sentenceList, currentSentence);
+}
+
+function buildProgressPanelMarkup(totalCount, masteredCount, progress) {
+  return `
+    <div class="space-y-3 rounded-3xl bg-white p-3 shadow-sm">
+      <div class="grid grid-cols-3 gap-2">
+        <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${totalCount}</div></div>
+        <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
+        <button data-action="reset-progress" class="group rounded-2xl bg-slate-100 px-3 py-3 text-center transition text-slate-900 hover:bg-slate-900 hover:text-white"><div class="group-hover:hidden"><div class="text-xs font-semibold">진도/초기화</div><div class="text-xl font-extrabold">${progress}%</div></div><div class="hidden group-hover:block"><div class="text-xs font-semibold">진도</div><div class="text-sm font-bold leading-tight">초기화</div></div></button>
+      </div>
+      <div class="h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
+    </div>
+  `;
+}
+
+function buildMainContentMarkup(wordQuizModeActive, currentSentence, currentWordQuiz, hasWordQuizMeaning, wordQuizChoices, showSentencePronunciations) {
+  return wordQuizModeActive
+    ? buildWordQuizMainContent(currentWordQuiz, hasWordQuizMeaning, wordQuizChoices)
+    : buildSentenceMainContent(currentSentence, showSentencePronunciations);
+}
+
 function render() {
   cancelTypingRaf();
   const root = document.getElementById("root");
@@ -1246,99 +1377,17 @@ function render() {
 
   const sentenceList = getSentenceProgressList();
   const progressSource = wordQuizModeActive ? getWordQuizItemsList() : sentenceList;
-  const masteredCount = progressSource.filter((item) => item.mastered).length;
-  const progress = progressSource.length ? Math.round((masteredCount / progressSource.length) * 100) : 0;
+  const { masteredCount, progress } = getProgressStats(progressSource);
   const hasWordQuizMeaning = wordQuizModeActive ? Boolean(currentWordQuiz.meaning) : false;
   const wordQuizChoices = wordQuizModeActive && hasWordQuizMeaning ? getWordQuizChoices(currentWordQuiz) : [];
   const showSentencePronunciations = !wordQuizModeActive && !isAdvancedSentenceMode();
   const previousButtonLabel = wordQuizModeActive ? "이전단어" : "이전문장";
   const nextButtonLabel = wordQuizModeActive ? "다음단어" : "다음문장";
 
-  const leftControls = wordQuizModeActive
-    ? `
-      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getWordQuizModeLabel()} #${currentWordQuiz.id}</span>
-    `
-    : `
-      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getSentenceModeLabel()} #${currentSentence.id}</span>
-      ${currentSentence.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
-    `;
-
-  const rightControls = `
-    ${wordQuizModeActive || isAdvancedSentenceMode() ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
-    <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
-    <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
-  `;
-
-  const mainContent = wordQuizModeActive
-    ? `
-      <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-        <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
-          <p class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${escapeHtml(currentWordQuiz.word)}</p>
-        </div>
-        ${hasWordQuizMeaning ? `
-          <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
-            ${wordQuizChoices
-              .map((meaning) => {
-                const isSelected = state.selectedWordChoice === meaning;
-                const isCorrect = meaning === currentWordQuiz.meaning;
-                const resultClass = isSelected
-                  ? isCorrect
-                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                    : "bg-rose-100 text-rose-800 border-rose-300"
-                  : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
-                return `<button data-action="answer-word-quiz" data-meaning="${escapeHtml(meaning)}" class="rounded-2xl border p-4 text-left text-lg font-bold transition ${resultClass}">${escapeHtml(meaning)}</button>`;
-              })
-              .join("")}
-          </div>
-        ` : `<div class="mt-8 rounded-2xl bg-white p-4 text-lg font-semibold text-slate-500 shadow-sm">뜻 준비중</div>`}
-      </div>
-    `
-    : `
-      <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-        <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
-          <div class="flex min-h-[120px] flex-col justify-between gap-3 md:min-h-[144px]">
-            <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl"><span id="english-display-text">${getSentenceDisplayMarkup(currentSentence, state.answer)}</span></p>
-            ${isAdvancedSentenceMode() ? `<div class="flex justify-end"><button data-action="replay-english" class="inline-flex items-center gap-2 rounded-full bg-transparent px-3 py-2 text-sm font-semibold leading-none text-slate-500 shadow-none transition hover:bg-white/90 hover:text-slate-900 hover:shadow-sm" title="영어 다시 듣기" aria-label="영어 다시 듣기">🔊 <span>다시듣기</span></button></div>` : ""}
-          </div>
-        </div>
-        ${showSentencePronunciations ? `<div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5"><div class="flex flex-wrap gap-2">${buildPronunciationMarkup(currentSentence.english)}</div></div>` : ""}
-        <div class="mt-8 space-y-5">
-          <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${currentSentence.korean}</p>
-          <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="${isAdvancedSentenceMode() ? "가려진 단어를 유추해 전체 영어 문장을 완성하세요" : "영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다"}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
-          ${state.feedback ? `<p class="rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${state.feedback}</p>` : ""}
-        </div>
-      </div>
-    `;
-
-  const sidebarItems = wordQuizModeActive
-    ? getWordQuizItemsList()
-        .map((item) => `
-          <button data-action="pick-word" data-word="${escapeHtml(item.word)}" class="w-full rounded-2xl p-3 text-left transition ${item.word === currentWordQuiz.word ? "border-2 border-slate-900 bg-white text-slate-900" : item.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
-            <div>
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-xs font-bold">#${item.id}</span>
-                <span class="text-xs">${item.mastered ? " 암기완료" : ""}</span>
-              </div>
-              <p class="mt-1 text-sm font-semibold">${escapeHtml(item.word)}</p>
-              <p class="mt-1 text-xs ${item.word === currentWordQuiz.word ? "text-slate-500" : item.mastered ? "text-emerald-700" : "text-slate-500"}">${item.mastered ? "암기완료" : "준비됨"}</p>
-            </div>
-          </button>
-        `)
-        .join("")
-    : sentenceList
-        .map((s) => `
-          <button data-action="pick" data-sentence-id="${s.id}" class="w-full rounded-2xl p-3 text-left transition ${s.id === currentSentence.id ? "border-2 border-slate-900 bg-white text-slate-900" : s.mastered ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-slate-50 hover:bg-slate-100"}">
-            <div>
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-xs font-bold">#${s.id}</span>
-                <span class="text-xs">${s.starred ? "★" : ""}${s.mastered ? " 암기완료" : ""}</span>
-              </div>
-              <p class="mt-1 text-sm font-semibold">${getSidebarSentenceText(s, currentSentence)}</p>
-              <p class="mt-1 text-xs ${s.id === currentSentence.id ? "text-slate-500" : s.mastered ? "text-emerald-700" : "text-slate-500"}">${s.korean}</p>
-            </div>
-          </button>
-        `)
-        .join("");
+  const leftControls = buildLeftControlsMarkup(wordQuizModeActive, currentSentence, currentWordQuiz);
+  const rightControls = buildRightControlsMarkup(wordQuizModeActive);
+  const mainContent = buildMainContentMarkup(wordQuizModeActive, currentSentence, currentWordQuiz, hasWordQuizMeaning, wordQuizChoices, showSentencePronunciations);
+  const sidebarItems = buildSidebarItemsMarkup(wordQuizModeActive, sentenceList, currentSentence, currentWordQuiz);
 
   root.innerHTML = `
     <div class="min-h-screen px-[5vw] py-[2.5vh] text-slate-900">
@@ -1352,7 +1401,7 @@ function render() {
               <button data-action="set-mode-sentence-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />문장</button>
               <button data-action="set-mode-sentence-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />문장</button>
               <button data-action="set-mode-word-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />단어</button>
-              <button data-action="set-mode-word-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />단어</button>
+              <button data-action="set-mode-word-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">추가<br />단어</button>
             </div>
           </div>
         </header>
@@ -1372,14 +1421,7 @@ function render() {
           </main>
 
           <aside id="sidebar-panel" class="flex min-h-0 flex-col gap-4 self-stretch">
-            <div class="space-y-3 rounded-3xl bg-white p-3 shadow-sm">
-              <div class="grid grid-cols-3 gap-2">
-                <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${progressSource.length}</div></div>
-                <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
-                <button data-action="reset-progress" class="group rounded-2xl bg-slate-100 px-3 py-3 text-center transition text-slate-900 hover:bg-slate-900 hover:text-white"><div class="group-hover:hidden"><div class="text-xs font-semibold">진도/초기화</div><div class="text-xl font-extrabold">${progress}%</div></div><div class="hidden group-hover:block"><div class="text-xs font-semibold">진도</div><div class="text-sm font-bold leading-tight">초기화</div></div></button>
-              </div>
-              <div class="h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
-            </div>
+            ${buildProgressPanelMarkup(progressSource.length, masteredCount, progress)}
             <div class="min-h-0 flex-1 space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
               ${sidebarItems}
             </div>
