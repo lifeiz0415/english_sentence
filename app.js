@@ -243,11 +243,11 @@ function getSentenceStorageKey() {
 }
 
 function getSentenceModeLabel() {
-  return state.mode === "sentence-advanced" ? "심화" : "기초";
+  return state.mode === "sentence-advanced" ? "심화" : "빈출문장";
 }
 
 function getWordQuizModeLabel() {
-  return state.mode === "word-advanced" ? "심화" : "기초";
+  return state.mode === "word-advanced" ? "심화" : "빈출단어";
 }
 
 function getSentenceProgressList() {
@@ -1012,15 +1012,14 @@ function render() {
     <div class="min-h-screen px-[5vw] py-[2.5vh] text-slate-900">
       <div class="mx-auto w-full space-y-5">
         <header class="rounded-3xl bg-white p-5 shadow-sm">
-          <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p class="text-sm font-semibold text-slate-500">Master English with 365 Sentences</p>
-              <h1 class="text-2xl font-bold md:text-4xl">🎯 365문장으로 영어 마스터하기</h1>
+              <h1 class="text-2xl font-bold md:text-4xl">🎯 영어공부 쉽게 하자!</h1>
             </div>
             <div class="grid grid-cols-2 gap-2 md:min-w-[320px] md:grid-cols-4">
-              <button data-action="set-mode-sentence-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">기초<br />문장</button>
+              <button data-action="set-mode-sentence-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />문장</button>
               <button data-action="set-mode-sentence-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />문장</button>
-              <button data-action="set-mode-word-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">기초<br />단어</button>
+              <button data-action="set-mode-word-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />단어</button>
               <button data-action="set-mode-word-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />단어</button>
             </div>
           </div>
