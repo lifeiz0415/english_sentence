@@ -1124,6 +1124,8 @@ function handleActionClick(el) {
           safeSetWordQuizIndex(1, true);
         }
       } else if (isAdvancedSentenceMode() && isSentenceEnglishVisible()) {
+        const currentSentence = getCurrent();
+        if (!currentSentence) break;
         state.advancedRevealAnswers = true;
         render();
         const advanceToNextSentence = () => {
@@ -1132,6 +1134,7 @@ function handleActionClick(el) {
           } else {
             safeSetIndex(1, true);
           }
+          state.shouldSpeakAfterRender = true;
           state.advancedRevealTimerId = null;
           render();
         };
@@ -1141,6 +1144,7 @@ function handleActionClick(el) {
         } else {
           advanceToNextSentence();
         }
+        return;
       } else if (state.isRandomOn) {
         safeSetIndex(getAdvanceIndex(), false);
       } else {
