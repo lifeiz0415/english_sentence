@@ -1126,7 +1126,7 @@ function handleActionClick(el) {
       } else if (isAdvancedSentenceMode() && isSentenceEnglishVisible()) {
         state.advancedRevealAnswers = true;
         render();
-        state.advancedRevealTimerId = window.setTimeout(() => {
+        const advanceToNextSentence = () => {
           if (state.isRandomOn) {
             safeSetIndex(getAdvanceIndex(), false);
           } else {
@@ -1134,7 +1134,13 @@ function handleActionClick(el) {
           }
           state.advancedRevealTimerId = null;
           render();
-        }, 2000);
+        };
+
+        if (state.isListenOn) {
+          speak(currentSentence, { onComplete: advanceToNextSentence });
+        } else {
+          advanceToNextSentence();
+        }
       } else if (state.isRandomOn) {
         safeSetIndex(getAdvanceIndex(), false);
       } else {
