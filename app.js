@@ -363,6 +363,7 @@ const state = {
   wordQuizFeedback: "",
   selectedWordChoice: "",
   wordQuizAnsweredCorrectly: false,
+  currentWordQuizHadWrongAttempt: false,
   shouldSpeakWordQuizAfterRender: false,
   wordQuizChoiceMap: {},
   wordQuizAdvanceTimerId: null,
@@ -731,6 +732,7 @@ function safeSetWordQuizIndex(nextWordOrOffset, useOffset = true) {
   state.wordQuizFeedback = "";
   state.selectedWordChoice = "";
   state.wordQuizAnsweredCorrectly = false;
+  state.currentWordQuizHadWrongAttempt = false;
 }
 
 function updateCurrent(patch, current) {
@@ -1005,6 +1007,7 @@ function handleWordQuizAnswer(choice) {
   if (choice !== current.meaning) {
     state.wordQuizFeedback = "";
     state.wordQuizAnsweredCorrectly = false;
+    state.currentWordQuizHadWrongAttempt = true;
     state.shouldSpeakWordQuizAfterRender = false;
     playWordQuizWrongBeep();
     render();
@@ -1022,7 +1025,7 @@ function handleWordQuizAnswer(choice) {
         nextWord = pool.find((item) => item.word !== current.word)?.word || nextWord;
       }
       state.wordQuizAdvanceTimerId = window.setTimeout(() => {
-        updateWordQuizCurrent({ mastered: true }, current);
+        updateWordQuizCurrent({ mastered: !state.currentWordQuizHadWrongAttempt }, current);
         safeSetWordQuizIndex(nextWord, false);
         state.shouldSpeakWordQuizAfterRender = true;
         state.wordQuizAdvanceTimerId = null;
@@ -1031,7 +1034,7 @@ function handleWordQuizAnswer(choice) {
     }
   } else {
     state.wordQuizAdvanceTimerId = window.setTimeout(() => {
-      updateWordQuizCurrent({ mastered: true }, current);
+      updateWordQuizCurrent({ mastered: !state.currentWordQuizHadWrongAttempt }, current);
       safeSetWordQuizIndex(1, true);
       state.shouldSpeakWordQuizAfterRender = true;
       state.wordQuizAdvanceTimerId = null;
@@ -1082,6 +1085,7 @@ function resetWordQuizProgress() {
   state.wordQuizFeedback = "";
   state.selectedWordChoice = "";
   state.wordQuizAnsweredCorrectly = false;
+  state.currentWordQuizHadWrongAttempt = false;
   state.wordQuizChoiceMap = {};
   clearWordQuizAdvanceTimer();
   persistWordQuizProgress();
@@ -1105,6 +1109,7 @@ function handleActionClick(el) {
     state.wordQuizFeedback = "";
     state.selectedWordChoice = "";
     state.wordQuizAnsweredCorrectly = false;
+    state.currentWordQuizHadWrongAttempt = false;
     state.shouldSpeakWordQuizAfterRender = isWordQuizMode();
     state.wordQuizChoiceMap = {};
     state.isMobileMenuOpen = false;
