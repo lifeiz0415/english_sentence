@@ -366,6 +366,7 @@ const state = {
   shouldSpeakWordQuizAfterRender: false,
   wordQuizChoiceMap: {},
   wordQuizAdvanceTimerId: null,
+  isMobileMenuOpen: false,
   advancedMaskedSentenceId: null,
   advancedMaskedRanges: [],
   advancedRevealAnswers: false,
@@ -634,7 +635,9 @@ function initializeSentences() {
     state.advancedWordQuizIndex = state.advancedWordQuizItems.findIndex((item) => item.word === initial.word);
   }
 
-  state.mode = "sentence-basic";
+  const shouldUseCompactLayout = typeof window !== "undefined" && window.innerWidth < 1024;
+  state.mode = shouldUseCompactLayout ? "word-basic" : "sentence-basic";
+  state.shouldSpeakWordQuizAfterRender = shouldUseCompactLayout;
 }
 
 function persist() {
@@ -1104,6 +1107,7 @@ function handleActionClick(el) {
     state.wordQuizAnsweredCorrectly = false;
     state.shouldSpeakWordQuizAfterRender = isWordQuizMode();
     state.wordQuizChoiceMap = {};
+    state.isMobileMenuOpen = false;
     state.advancedMaskedSentenceId = null;
     state.advancedMaskedRanges = [];
     state.advancedRevealAnswers = false;
@@ -1113,6 +1117,9 @@ function handleActionClick(el) {
   }
 
   switch (action) {
+    case "toggle-mobile-menu":
+      state.isMobileMenuOpen = !state.isMobileMenuOpen;
+      break;
     case "toggle-listen":
       toggleListen();
       break;
@@ -1223,24 +1230,29 @@ function getProgressStats(items) {
   return { masteredCount, progress };
 }
 
+function shouldUseCompactLayout() {
+  return typeof window !== "undefined" && window.innerWidth < 1024;
+}
+
 function buildLeftControlsMarkup(wordQuizModeActive, currentSentence, currentWordQuiz) {
+  const useCompactLayout = shouldUseCompactLayout();
   if (wordQuizModeActive) {
     return `
-      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getWordQuizModeLabel()} #${currentWordQuiz.id}</span>
+      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${useCompactLayout ? `#${currentWordQuiz.id}` : `${getWordQuizModeLabel()} #${currentWordQuiz.id}`}</span>
     `;
   }
 
   return `
-    <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${getSentenceModeLabel()} #${currentSentence.id}</span>
+    <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${useCompactLayout ? `#${currentSentence.id}` : `${getSentenceModeLabel()} #${currentSentence.id}`}</span>
     ${currentSentence.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
   `;
 }
 
 function buildRightControlsMarkup(wordQuizModeActive) {
   return `
-    ${wordQuizModeActive || isAdvancedSentenceMode() ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "자동재생 on" : "자동재생 off"}</button>`}
-    <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isRandomOn ? "랜덤 on" : "랜덤 off"}</button>
-    <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isListenOn ? "듣기 on" : "듣기 off"}</button>
+    ${wordQuizModeActive || isAdvancedSentenceMode() ? "" : `<button data-action="toggle-autoplay" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isAutoplaying ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isAutoplaying ? "연속" : "수동"}</button>`}
+    <button data-action="toggle-random" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isRandomOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isRandomOn ? "랜덤" : "순차"}</button>
+    <button data-action="toggle-listen" class="rounded-2xl px-4 py-2 text-sm font-bold transition ${state.isListenOn ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200" : "bg-rose-100 text-rose-800 hover:bg-rose-200"}">${state.isListenOn ? "듣기" : "조용"}</button>
   `;
 }
 
@@ -1259,18 +1271,18 @@ function getWordQuizChoiceButtonClass(meaning, correctMeaning) {
 
 function buildWordQuizChoicesMarkup(currentWordQuiz, wordQuizChoices) {
   return wordQuizChoices
-    .map((meaning) => `<button data-action="answer-word-quiz" data-meaning="${escapeHtml(meaning)}" class="rounded-2xl border p-4 text-left text-lg font-bold transition ${getWordQuizChoiceButtonClass(meaning, currentWordQuiz.meaning)}">${escapeHtml(meaning)}</button>`)
+    .map((meaning) => `<button data-action="answer-word-quiz" data-meaning="${escapeHtml(meaning)}" class="min-h-[88px] rounded-2xl border p-4 text-left text-base font-bold transition lg:min-h-0 lg:text-lg ${getWordQuizChoiceButtonClass(meaning, currentWordQuiz.meaning)}">${escapeHtml(meaning)}</button>`)
     .join("");
 }
 
 function buildWordQuizMainContent(currentWordQuiz, hasWordQuizMeaning, wordQuizChoices) {
   return `
-    <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-      <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
-        <p class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl">${escapeHtml(currentWordQuiz.word)}</p>
+    <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 lg:p-10">
+      <div class="min-h-[88px] overflow-visible rounded-2xl bg-white/50 p-3 pb-4 lg:min-h-[172px] lg:p-4 lg:pb-6">
+        <p class="text-2xl font-extrabold leading-normal tracking-tight pb-1 lg:text-5xl">${escapeHtml(currentWordQuiz.word)}</p>
       </div>
       ${hasWordQuizMeaning ? `
-        <div class="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div class="mt-8 grid grid-cols-2 gap-3">
           ${buildWordQuizChoicesMarkup(currentWordQuiz, wordQuizChoices)}
         </div>
       ` : `<div class="mt-8 rounded-2xl bg-white p-4 text-lg font-semibold text-slate-500 shadow-sm">뜻 준비중</div>`}
@@ -1286,16 +1298,16 @@ function buildAdvancedReplayButtonMarkup() {
 
 function buildSentenceMainContent(currentSentence, showSentencePronunciations) {
   return `
-    <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 md:p-10">
-      <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 md:min-h-[172px] md:p-4 md:pb-6">
-        <div class="flex min-h-[120px] flex-col justify-between gap-3 md:min-h-[144px]">
-          <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 md:text-5xl"><span id="english-display-text">${getSentenceDisplayMarkup(currentSentence, state.answer)}</span></p>
+    <div class="min-h-[330px] rounded-3xl bg-slate-100 p-6 lg:p-10">
+      <div class="min-h-[148px] overflow-visible rounded-2xl bg-white/50 p-3 pb-5 lg:min-h-[172px] lg:p-4 lg:pb-6">
+        <div class="flex min-h-[120px] flex-col justify-between gap-3 lg:min-h-[144px]">
+          <p id="english-display" class="text-3xl font-extrabold leading-normal tracking-tight pb-1 lg:text-5xl"><span id="english-display-text">${getSentenceDisplayMarkup(currentSentence, state.answer)}</span></p>
           ${buildAdvancedReplayButtonMarkup()}
         </div>
       </div>
-      ${showSentencePronunciations ? `<div class="mt-4 max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5"><div class="flex flex-wrap gap-2">${buildPronunciationMarkup(currentSentence.english)}</div></div>` : ""}
+      ${showSentencePronunciations ? `<div class="mt-4 hidden max-h-[64px] overflow-hidden rounded-2xl bg-white/40 p-1.5 lg:block"><div class="flex flex-wrap gap-2">${buildPronunciationMarkup(currentSentence.english)}</div></div>` : ""}
       <div class="mt-8 space-y-5">
-        <p class="rounded-3xl bg-white p-5 text-2xl font-bold leading-relaxed text-slate-700 shadow-sm">${currentSentence.korean}</p>
+        <p class="rounded-3xl bg-white p-5 text-lg font-bold leading-relaxed text-slate-700 shadow-sm lg:text-2xl">${currentSentence.korean}</p>
         <input id="card-answer-input" value="${state.answer.replaceAll('"', '&quot;')}" placeholder="${isAdvancedSentenceMode() ? "가려진 단어를 유추해 전체 영어 문장을 완성하세요" : "영어 문장을 정확히 입력하면 자동으로 다음 문장으로 이동합니다"}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" class="w-full rounded-2xl border-2 border-slate-900 bg-white p-4 text-lg outline-none focus:ring-0" />
         ${state.feedback ? `<p class="rounded-2xl bg-white p-4 font-semibold text-slate-700 shadow-sm">${state.feedback}</p>` : ""}
       </div>
@@ -1347,9 +1359,9 @@ function buildProgressPanelMarkup(totalCount, masteredCount, progress) {
   return `
     <div class="space-y-3 rounded-3xl bg-white p-3 shadow-sm">
       <div class="grid grid-cols-3 gap-2">
-        <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${totalCount}</div></div>
-        <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="text-xs font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div>
-        <button data-action="reset-progress" class="group rounded-2xl bg-slate-100 px-3 py-3 text-center transition text-slate-900 hover:bg-slate-900 hover:text-white"><div class="group-hover:hidden"><div class="text-xs font-semibold">진도/초기화</div><div class="text-xl font-extrabold">${progress}%</div></div><div class="hidden group-hover:block"><div class="text-xs font-semibold">진도</div><div class="text-sm font-bold leading-tight">초기화</div></div></button>
+        <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="flex items-center justify-center gap-2 whitespace-nowrap"><div class="text-[11px] font-semibold text-slate-500">전체</div><div class="text-xl font-extrabold">${totalCount}</div></div></div>
+        <div class="rounded-2xl bg-slate-100 px-3 py-3 text-center"><div class="flex items-center justify-center gap-2 whitespace-nowrap"><div class="text-[11px] font-semibold text-slate-500">암기</div><div class="text-xl font-extrabold">${masteredCount}</div></div></div>
+        <button data-action="reset-progress" class="group rounded-2xl bg-slate-100 px-3 py-3 text-center transition text-slate-900 hover:bg-slate-900 hover:text-white"><div class="flex items-center justify-center gap-2 whitespace-nowrap group-hover:hidden"><div class="text-[11px] font-semibold">진도/초기화</div><div class="text-xl font-extrabold">${progress}%</div></div><div class="hidden group-hover:block"><div class="text-xs font-semibold">진도</div><div class="text-sm font-bold leading-tight">초기화</div></div></button>
       </div>
       <div class="h-3 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-slate-900" style="width:${progress}%"></div></div>
     </div>
@@ -1383,6 +1395,7 @@ function render() {
   const showSentencePronunciations = !wordQuizModeActive && !isAdvancedSentenceMode();
   const previousButtonLabel = wordQuizModeActive ? "이전단어" : "이전문장";
   const nextButtonLabel = wordQuizModeActive ? "다음단어" : "다음문장";
+  const mobileProgressPanelMarkup = buildProgressPanelMarkup(progressSource.length, masteredCount, progress);
 
   const leftControls = buildLeftControlsMarkup(wordQuizModeActive, currentSentence, currentWordQuiz);
   const rightControls = buildRightControlsMarkup(wordQuizModeActive);
@@ -1393,21 +1406,25 @@ function render() {
     <div class="min-h-screen px-[5vw] py-[2.5vh] text-slate-900">
       <div class="mx-auto w-full space-y-5">
         <header class="rounded-3xl bg-white p-5 shadow-sm">
-          <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 class="text-2xl font-bold md:text-4xl">🎯 영어공부 쉽게 하자!</h1>
+          <div class="flex items-center justify-between gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="text-left">
+              <h1 class="text-2xl font-bold lg:text-4xl">🎯 영어공부 쉽게 하자!</h1>
             </div>
-            <div class="grid grid-cols-2 gap-2 md:min-w-[320px] md:grid-cols-4">
-              <button data-action="set-mode-sentence-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />문장</button>
-              <button data-action="set-mode-sentence-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />문장</button>
-              <button data-action="set-mode-word-basic" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />단어</button>
-              <button data-action="set-mode-word-advanced" class="aspect-square rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">추가<br />단어</button>
+            <button data-action="toggle-mobile-menu" class="inline-flex items-center justify-center rounded-2xl bg-slate-100 px-4 py-3 text-xl font-bold text-slate-700 transition hover:bg-slate-200 lg:hidden" aria-label="메뉴 열기">☰</button>
+            <div class="hidden lg:grid lg:min-w-[320px] lg:grid-cols-4 lg:gap-2">
+              <button data-action="set-mode-sentence-basic" class="min-h-[72px] min-w-[92px] shrink-0 rounded-2xl px-3 py-3 text-center text-base font-bold shadow-sm leading-tight transition lg:aspect-square lg:min-w-0 lg:px-4 lg:text-sm ${state.mode === "sentence-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />문장</button>
+              <button data-action="set-mode-sentence-advanced" class="min-h-[72px] min-w-[92px] shrink-0 rounded-2xl px-3 py-3 text-center text-base font-bold shadow-sm leading-tight transition lg:aspect-square lg:min-w-0 lg:px-4 lg:text-sm ${state.mode === "sentence-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />문장</button>
+              <button data-action="set-mode-word-basic" class="min-h-[72px] min-w-[92px] shrink-0 rounded-2xl px-3 py-3 text-center text-base font-bold shadow-sm leading-tight transition lg:aspect-square lg:min-w-0 lg:px-4 lg:text-sm ${state.mode === "word-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />단어</button>
+              <button data-action="set-mode-word-advanced" class="min-h-[72px] min-w-[92px] shrink-0 rounded-2xl px-3 py-3 text-center text-base font-bold shadow-sm leading-tight transition lg:aspect-square lg:min-w-0 lg:px-4 lg:text-sm ${state.mode === "word-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">추가<br />단어</button>
             </div>
           </div>
+          ${state.isMobileMenuOpen ? `<div class="mt-4 flex gap-2 overflow-x-auto lg:hidden"><button data-action="set-mode-sentence-basic" class="min-w-[92px] shrink-0 rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />문장</button><button data-action="set-mode-sentence-advanced" class="min-w-[92px] shrink-0 rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "sentence-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">심화<br />문장</button><button data-action="set-mode-word-basic" class="min-w-[92px] shrink-0 rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-basic" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">빈출<br />단어</button><button data-action="set-mode-word-advanced" class="min-w-[92px] shrink-0 rounded-2xl px-4 py-3 text-center text-sm font-bold shadow-sm leading-tight transition ${state.mode === "word-advanced" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}">추가<br />단어</button></div>` : ""}
         </header>
 
-        <section class="grid items-start gap-4 md:grid-cols-[1fr_320px]">
-          <main id="main-panel" class="rounded-3xl bg-white p-5 shadow-sm md:p-8">
+        <div class="lg:hidden">${mobileProgressPanelMarkup}</div>
+
+        <section class="grid items-start gap-4 lg:grid-cols-[1fr_320px]">
+          <main id="main-panel" class="rounded-3xl bg-white p-5 shadow-sm lg:p-8">
             <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div class="flex items-center gap-2">${leftControls}</div>
               <div class="flex items-center gap-2">${rightControls}</div>
@@ -1420,7 +1437,7 @@ function render() {
             </div>
           </main>
 
-          <aside id="sidebar-panel" class="flex min-h-0 flex-col gap-4 self-stretch">
+          <aside id="sidebar-panel" class="hidden min-h-0 flex-col gap-4 self-stretch lg:flex">
             ${buildProgressPanelMarkup(progressSource.length, masteredCount, progress)}
             <div class="min-h-0 flex-1 space-y-2 overflow-auto rounded-3xl bg-white p-3 shadow-sm" id="list-wrap">
               ${sidebarItems}
