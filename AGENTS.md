@@ -39,8 +39,13 @@
 - 심화문장 저장 키: `const-english-sentences-advanced-v1`
 - 빈출단어 저장 키: `const-english-word-quiz-v1`
 - 심화단어 저장 키: `const-english-word-quiz-advanced-v1`
+- 빈출문장 완료별 저장 키: `const-english-sentences-v4-completion-stars`
+- 심화문장 완료별 저장 키: `const-english-sentences-advanced-v1-completion-stars`
+- 빈출단어 완료별 저장 키: `const-english-word-quiz-v1-completion-stars`
+- 심화단어 완료별 저장 키: `const-english-word-quiz-advanced-v1-completion-stars`
 - 문장 진도는 같은 `id` 기준으로 `mastered`, `starred`만 병합합니다.
 - 단어 진도는 같은 `word` 기준으로 `mastered`만 병합합니다.
+- 각 메뉴의 완료별 개수는 메뉴별 localStorage 키로 따로 저장됩니다.
 - `resetProgress()`는 현재 문장 모드의 `mastered`, `starred`, 인덱스, 입력 상태를 초기화합니다.
 - `resetWordQuizProgress()`는 현재 단어 모드의 `mastered`만 초기화합니다.
 
@@ -56,6 +61,7 @@
 - 화면폭이 좁아지면 헤더 메뉴는 햄버거 메뉴로 접히고, 문장리스트/단어리스트 사이드바는 숨겨집니다.
 - 화면폭이 좁아지면 `전체 / 암기 / 진도` 카드와 프로그래스바는 헤더 바로 아래로 이동해 표시됩니다.
 - 화면폭이 좁아지면 상단의 모드명 + `#번호` 배지는 모드명을 숨기고 `#번호`만 표시합니다.
+- 각 메뉴에서 전체 항목을 모두 암기하면 현재 메뉴의 `#번호` 배지 오른쪽에 `⭐` 완료별이 1개 누적되고, 해당 메뉴 진도는 즉시 초기화됩니다.
 - 모바일 및 태블릿(화면폭 1024px 미만) 사용자가 접속하면 기본 랜딩 모드는 `빈출단어`입니다.
 
 ## 문장 모드 계약

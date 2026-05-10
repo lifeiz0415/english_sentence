@@ -334,6 +334,10 @@ const BASIC_SENTENCE_STORAGE_KEY = "const-english-sentences-v4";
 const ADVANCED_SENTENCE_STORAGE_KEY = "const-english-sentences-advanced-v1";
 const BASIC_WORD_QUIZ_STORAGE_KEY = "const-english-word-quiz-v1";
 const ADVANCED_WORD_QUIZ_STORAGE_KEY = "const-english-word-quiz-advanced-v1";
+const BASIC_SENTENCE_COMPLETION_STARS_KEY = "const-english-sentences-v4-completion-stars";
+const ADVANCED_SENTENCE_COMPLETION_STARS_KEY = "const-english-sentences-advanced-v1-completion-stars";
+const BASIC_WORD_QUIZ_COMPLETION_STARS_KEY = "const-english-word-quiz-v1-completion-stars";
+const ADVANCED_WORD_QUIZ_COMPLETION_STARS_KEY = "const-english-word-quiz-advanced-v1-completion-stars";
 const DATA_FILE_PATH = "./data.json";
 
 const state = {
@@ -358,6 +362,10 @@ const state = {
   speechFallbackTimerId: null,
   basicWordQuizItems: [],
   advancedWordQuizItems: [],
+  basicSentenceCompletionStars: 0,
+  advancedSentenceCompletionStars: 0,
+  basicWordQuizCompletionStars: 0,
+  advancedWordQuizCompletionStars: 0,
   basicWordQuizIndex: 0,
   advancedWordQuizIndex: 0,
   wordQuizFeedback: "",
@@ -440,6 +448,17 @@ function loadSentences(storageKey) {
   return defaultSentences;
 }
 
+function loadCompletionStars(storageKey) {
+  try {
+    const saved = window.localStorage.getItem(storageKey);
+    const parsed = Number(saved);
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
+  } catch (error) {
+    console.warn("Completion star count could not be loaded", error);
+    return 0;
+  }
+}
+
 function isSentenceMode() {
   return state.mode === "sentence-basic" || state.mode === "sentence-advanced";
 }
@@ -458,6 +477,32 @@ function getSentenceModeLabel() {
 
 function getWordQuizModeLabel() {
   return state.mode === "word-advanced" ? "추가단어" : "빈출단어";
+}
+
+function getCompletionStarsStorageKey() {
+  if (state.mode === "sentence-advanced") return ADVANCED_SENTENCE_COMPLETION_STARS_KEY;
+  if (state.mode === "sentence-basic") return BASIC_SENTENCE_COMPLETION_STARS_KEY;
+  if (state.mode === "word-advanced") return ADVANCED_WORD_QUIZ_COMPLETION_STARS_KEY;
+  return BASIC_WORD_QUIZ_COMPLETION_STARS_KEY;
+}
+
+function getCompletionStars() {
+  if (state.mode === "sentence-advanced") return state.advancedSentenceCompletionStars;
+  if (state.mode === "sentence-basic") return state.basicSentenceCompletionStars;
+  if (state.mode === "word-advanced") return state.advancedWordQuizCompletionStars;
+  return state.basicWordQuizCompletionStars;
+}
+
+function setCompletionStars(nextCount) {
+  if (state.mode === "sentence-advanced") {
+    state.advancedSentenceCompletionStars = nextCount;
+  } else if (state.mode === "sentence-basic") {
+    state.basicSentenceCompletionStars = nextCount;
+  } else if (state.mode === "word-advanced") {
+    state.advancedWordQuizCompletionStars = nextCount;
+  } else {
+    state.basicWordQuizCompletionStars = nextCount;
+  }
 }
 
 function getAdvancedMaskedRanges(current) {
@@ -602,6 +647,11 @@ async function loadDataFile() {
 }
 
 function initializeSentences() {
+  state.basicSentenceCompletionStars = loadCompletionStars(BASIC_SENTENCE_COMPLETION_STARS_KEY);
+  state.advancedSentenceCompletionStars = loadCompletionStars(ADVANCED_SENTENCE_COMPLETION_STARS_KEY);
+  state.basicWordQuizCompletionStars = loadCompletionStars(BASIC_WORD_QUIZ_COMPLETION_STARS_KEY);
+  state.advancedWordQuizCompletionStars = loadCompletionStars(ADVANCED_WORD_QUIZ_COMPLETION_STARS_KEY);
+
   state.basicSentences = loadSentences(BASIC_SENTENCE_STORAGE_KEY);
   if (state.basicSentences.length > 0) {
     const unmastered = state.basicSentences.filter((s) => !s.mastered);
@@ -646,6 +696,14 @@ function persist() {
     window.localStorage.setItem(getSentenceStorageKey(), JSON.stringify(getSentenceProgressList()));
   } catch (error) {
     console.warn("Progress could not be saved", error);
+  }
+}
+
+function persistCompletionStars() {
+  try {
+    window.localStorage.setItem(getCompletionStarsStorageKey(), String(getCompletionStars()));
+  } catch (error) {
+    console.warn("Completion star count could not be saved", error);
   }
 }
 
@@ -737,13 +795,43 @@ function safeSetWordQuizIndex(nextWordOrOffset, useOffset = true) {
 
 function updateCurrent(patch, current) {
   if (!current) return;
-  setSentenceProgressList(getSentenceProgressList().map((s) => (s.id === current.id ? { ...s, ...patch } : s)));
+  const nextList = getSentenceProgressList().map((s) => (s.id === current.id ? { ...s, ...patch } : s));
+  setSentenceProgressList(nextList);
+  if (nextList.length > 0 && nextList.every((item) => item.mastered)) {
+    setCompletionStars(getCompletionStars() + 1);
+    persistCompletionStars();
+    setSentenceProgressList(nextList.map((item) => ({ ...item, mastered: false, starred: false })));
+    setSentenceIndex(0);
+    state.answer = "";
+    state.feedback = "";
+    state.advancedMaskedSentenceId = null;
+    state.advancedMaskedRanges = [];
+    state.advancedRevealAnswers = false;
+    clearAdvancedRevealTimer();
+    persist();
+    return;
+  }
   persist();
 }
 
 function updateWordQuizCurrent(patch, current) {
   if (!current) return;
-  setWordQuizItemsList(getWordQuizItemsList().map((item) => (item.word === current.word ? { ...item, ...patch } : item)));
+  const nextList = getWordQuizItemsList().map((item) => (item.word === current.word ? { ...item, ...patch } : item));
+  setWordQuizItemsList(nextList);
+  if (nextList.length > 0 && nextList.every((item) => item.mastered)) {
+    setCompletionStars(getCompletionStars() + 1);
+    persistCompletionStars();
+    setWordQuizItemsList(nextList.map((item) => ({ ...item, mastered: false })));
+    setWordQuizIndex(0);
+    state.wordQuizFeedback = "";
+    state.selectedWordChoice = "";
+    state.wordQuizAnsweredCorrectly = false;
+    state.currentWordQuizHadWrongAttempt = false;
+    state.wordQuizChoiceMap = {};
+    clearWordQuizAdvanceTimer();
+    persistWordQuizProgress();
+    return;
+  }
   persistWordQuizProgress();
 }
 
@@ -1239,16 +1327,22 @@ function shouldUseCompactLayout() {
   return typeof window !== "undefined" && window.innerWidth < 1024;
 }
 
+function buildCompletionStarsBadgeMarkup() {
+  const stars = getCompletionStars();
+  if (stars <= 0) return "";
+  return `<span class="ml-2 text-base leading-none text-amber-400">${"⭐".repeat(stars)}</span>`;
+}
+
 function buildLeftControlsMarkup(wordQuizModeActive, currentSentence, currentWordQuiz) {
   const useCompactLayout = shouldUseCompactLayout();
   if (wordQuizModeActive) {
     return `
-      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${useCompactLayout ? `#${currentWordQuiz.id}` : `${getWordQuizModeLabel()} #${currentWordQuiz.id}`}</span>
+      <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${useCompactLayout ? `#${currentWordQuiz.id}` : `${getWordQuizModeLabel()} #${currentWordQuiz.id}`}${buildCompletionStarsBadgeMarkup()}</span>
     `;
   }
 
   return `
-    <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${useCompactLayout ? `#${currentSentence.id}` : `${getSentenceModeLabel()} #${currentSentence.id}`}</span>
+    <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900">${useCompactLayout ? `#${currentSentence.id}` : `${getSentenceModeLabel()} #${currentSentence.id}`}${buildCompletionStarsBadgeMarkup()}</span>
     ${currentSentence.mastered ? '<span class="rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">암기완료</span>' : ""}
   `;
 }
